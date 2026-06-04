@@ -9,7 +9,7 @@ export const setAuthCookies = (
 ) => {
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    secure: true, // HTTPS only in production
+    secure: isProd, // HTTPS only in production
     sameSite: "none", // CSRF protection
     maxAge: 15 * 60, // 15 minutes
     path: "/",
@@ -17,7 +17,7 @@ export const setAuthCookies = (
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: true,
+    secure: isProd,
     sameSite: "none",
     maxAge: 7 * 24 * 60 * 60, // 7 days
     path: "/", // only sent on refresh endpoint
