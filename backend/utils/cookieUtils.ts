@@ -13,6 +13,7 @@ export const setAuthCookies = (
     sameSite: "none", // CSRF protection
     maxAge: 15 * 60, // 15 minutes
     path: "/",
+    domain: isProd ? "gambit-ruddy.vercel.app" : "",
   });
 
   res.cookie("refreshToken", refreshToken, {
@@ -21,10 +22,17 @@ export const setAuthCookies = (
     sameSite: "none",
     maxAge: 7 * 24 * 60 * 60, // 7 days
     path: "/", // only sent on refresh endpoint
+    domain: isProd ? "gambit-ruddy.vercel.app" : "",
   });
 };
 
 export const clearAuthCookies = (res: FastifyReply) => {
-  res.clearCookie("accessToken", { path: "/" });
-  res.clearCookie("refreshToken", { path: "/" });
+  res.clearCookie("accessToken", {
+    path: "/",
+    domain: isProd ? "gambit-ruddy.vercel.app" : "",
+  });
+  res.clearCookie("refreshToken", {
+    path: "/",
+    domain: isProd ? "gambit-ruddy.vercel.app" : "",
+  });
 };

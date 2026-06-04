@@ -15,3 +15,5 @@ This project is built by trying to learn fastify. Fastify is a highly performant
 During the development, I've found that fastify handles request faster and better than Express. It's really fast and I'm not kidding about it. Since I am an intermediate developer, learning fastify was bit difficult at first but after I got the basics it was smooth after that. The docs are hard to navigate too, I had to spend more time trying to figure out the docs then the actual code😂.
 
 I am greatful for claude in helping me through the journey. Without it I would have been stuck for months trying to get the UI right.
+
+Site-url: [GAMBIT](https://gambit-ruddy.vercel.app/)
