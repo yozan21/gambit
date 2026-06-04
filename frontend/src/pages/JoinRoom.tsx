@@ -59,7 +59,7 @@ export default function JoinRoom() {
         },
         () => {}, // ignore frame errors
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error("Scanner error:", err);
       if (err?.name === "AbortError") return;
       setError("Could not access camera. Please allow camera permissions.");
