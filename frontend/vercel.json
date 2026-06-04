@@ -3,6 +3,10 @@
         {
             "source": "/api/:path*",
             "destination": "https://gambit-k9eb.onrender.com/api/v1/:path*"
+        },
+        {
+            "source": "/((?!api).*)",
+            "destination": "/"
         }
     ]
 }
