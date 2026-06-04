@@ -67,7 +67,6 @@ export default function Login() {
           error={errors.identifier?.message}
           {...register("identifier", {
             required: "Username or email is required",
-            value: "test1",
           })}
         />
         <FormInput
@@ -78,7 +77,6 @@ export default function Login() {
           error={errors.password?.message}
           {...register("password", {
             required: "Password is required",
-            value: "test1234",
           })}
         />
         <Link
