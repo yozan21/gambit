@@ -10,7 +10,7 @@ export const setAuthCookies = (
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure: isProd, // HTTPS only in production
-    sameSite: "none", // CSRF protection
+    sameSite: "lax", // CSRF protection
     maxAge: 15 * 60, // 15 minutes
     path: "/",
     domain: isProd ? "gambit-ruddy.vercel.app" : "",
@@ -19,7 +19,7 @@ export const setAuthCookies = (
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: "none",
+    sameSite: "lax",
     maxAge: 7 * 24 * 60 * 60, // 7 days
     path: "/", // only sent on refresh endpoint
     domain: isProd ? "gambit-ruddy.vercel.app" : "",
