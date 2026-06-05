@@ -1,5 +1,10 @@
 import { memo, useEffect } from "react";
-import { RouterProvider, useLocation, Outlet } from "react-router";
+import {
+  RouterProvider,
+  useLocation,
+  Outlet,
+  useNavigation,
+} from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "sonner";
 import { useGetMeQuery } from "./services/api";
@@ -63,15 +68,19 @@ function PageTransition({ children }: { children: React.ReactNode }) {
    App Shell
 ===================== */
 export function AppShell() {
+  const navigation = useNavigation();
   const isLoading = useAppSelector((state) => state.auth.isLoading);
+  const isNavigating = navigation.state === "loading";
 
   return (
     <SessionCheck>
       {/* Loading screen */}
-      <AnimatePresence>{isLoading && <LoadingScreen />}</AnimatePresence>
+      <AnimatePresence>
+        {isLoading || (isNavigating && <LoadingScreen />)}
+      </AnimatePresence>
 
       {/* App */}
-      {!isLoading && (
+      {!isLoading && !isNavigating && (
         <>
           <PageTransition>
             <Outlet />
