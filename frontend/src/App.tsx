@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect } from "react";
 import { RouterProvider, useLocation, Outlet } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "sonner";
@@ -42,35 +42,17 @@ const SessionCheck = memo(function SessionCheck({
 ===================== */
 function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const [displayLocation, setDisplayLocation] = useState(location);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  useEffect(() => {
-    if (location.pathname !== displayLocation.pathname) {
-      setIsTransitioning(true);
-      const timer = setTimeout(() => {
-        setDisplayLocation(location);
-        setIsTransitioning(false);
-      }, 400); // match LoadingScreen exit duration
-      return () => clearTimeout(timer);
-    }
-  }, [location, displayLocation]);
 
   return (
-    <>
-      <AnimatePresence>
-        {isTransitioning && <LoadingScreen key="page-transition" />}
-      </AnimatePresence>
-
-      <motion.div
-        key={displayLocation.pathname}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isTransitioning ? 0 : 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        {children}
-      </motion.div>
-    </>
+    <motion.div
+      key={location.pathname}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] as const }}
+      className="min-h-screen"
+    >
+      {children}
+    </motion.div>
   );
 }
 
