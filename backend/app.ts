@@ -38,7 +38,7 @@ export async function buildApp(app: FastifyInstance) {
     secret: process.env.JWT_ACCESS_SECRET!,
     cookie: {
       cookieName: "accessToken", // 👈 The key name used in your cookie store
-      signed: false, // Set to true if using signed/encrypted cookies
+      signed: process.env.NODE_ENV === "production", // Set to true if using signed/encrypted cookies
     },
   });
 
@@ -47,7 +47,7 @@ export async function buildApp(app: FastifyInstance) {
     secret: process.env.JWT_REFRESH_SECRET!,
     cookie: {
       cookieName: "refreshToken", // 👈 The key name used in your cookie store
-      signed: false, // Set to true if using signed/encrypted cookies
+      signed: process.env.NODE_ENV === "production", // Set to true if using signed/encrypted cookies
     },
   });
 
