@@ -44,7 +44,7 @@ function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       <motion.div
         key={location.pathname}
         initial={{ opacity: 0, y: 8 }}
