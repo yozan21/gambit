@@ -22,6 +22,7 @@ import FriendLobby from "./pages/FriendLobby.tsx";
 import CreateRoom from "./pages/Createroom.tsx";
 import JoinRoom from "./pages/JoinRoom.tsx";
 import ComingSoon from "./pages/ComingSoon.tsx";
+import ErrorPage from "./pages/ErrorPage.tsx";
 
 /* =====================
    Router Configuration
@@ -29,6 +30,7 @@ import ComingSoon from "./pages/ComingSoon.tsx";
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
+    errorElement: <ErrorPage />,
     children: [
       {
         path: "/",

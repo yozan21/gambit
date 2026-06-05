@@ -49,7 +49,7 @@ export default function LoadingScreen() {
         className="absolute bottom-12 w-30 overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1, duration: 0.4 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
       >
         <div
           className="h-px w-full overflow-hidden rounded-full"
