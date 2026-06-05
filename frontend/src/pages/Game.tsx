@@ -2,7 +2,7 @@
 
 import { useParams } from "react-router";
 import { useNavigate } from "react-router";
-import { useAppSelector } from "../hooks/dispatch";
+import { useAppDispatch, useAppSelector } from "../hooks/dispatch";
 
 import SearchingScreen from "../components/game/SearchingScreen";
 import GameLayout from "../components/game/GameLayout";
@@ -13,9 +13,11 @@ import { useRestoreGame } from "../hooks/useRestoreGame";
 import type { GameMode } from "../types/chess.types";
 import { disconnectSocket } from "@/services/socket";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { cancelledSearch } from "@/store/chess/chessSlice";
 
 export default function Game() {
   usePageTitle("Play");
+  const dispatch = useAppDispatch();
 
   const { mode, gameId } = useParams<{ mode: GameMode; gameId?: string }>();
   const navigate = useNavigate();
@@ -49,6 +51,7 @@ export default function Game() {
     return (
       <SearchingScreen
         onCancel={() => {
+          dispatch(cancelledSearch());
           disconnectSocket();
           navigate("/");
         }}
