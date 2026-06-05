@@ -45,6 +45,28 @@ const SessionCheck = memo(function SessionCheck({
 /* =====================
    Page Transition
 ===================== */
+
+function NavigationProgress() {
+  const navigation = useNavigation();
+  const isNavigating = navigation.state === "loading";
+
+  return (
+    <AnimatePresence>
+      {isNavigating && (
+        <motion.div
+          key="progress"
+          className="fixed top-0 left-0 z-9999 h-0.5 w-full origin-left"
+          style={{ background: "var(--gold)" }}
+          initial={{ scaleX: 0, opacity: 1 }}
+          animate={{ scaleX: 0.9 }}
+          exit={{ scaleX: 1, opacity: 0 }}
+          transition={{ duration: 0.8, ease: "easeInOut" }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
 function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
@@ -68,15 +90,13 @@ function PageTransition({ children }: { children: React.ReactNode }) {
    App Shell
 ===================== */
 export function AppShell() {
-  const navigation = useNavigation();
   const isLoading = useAppSelector((state) => state.auth.isLoading);
-  const isNavigating = navigation.state === "loading";
 
   return (
     <SessionCheck>
       {/* Loading screen */}
       <AnimatePresence>
-        {(isLoading || isNavigating) && (
+        {isLoading && (
           <motion.div key="loading" exit={{ opacity: 0 }}>
             <LoadingScreen />
           </motion.div>
@@ -84,8 +104,9 @@ export function AppShell() {
       </AnimatePresence>
 
       {/* App */}
-      {!isLoading && !isNavigating && (
+      {!isLoading && (
         <>
+          <NavigationProgress />
           <PageTransition>
             <Outlet />
           </PageTransition>
