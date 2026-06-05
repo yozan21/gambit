@@ -1,10 +1,5 @@
 import { memo, useEffect } from "react";
-import {
-  RouterProvider,
-  useLocation,
-  Outlet,
-  useNavigation,
-} from "react-router";
+import { RouterProvider, useLocation, Outlet } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "sonner";
 import { useGetMeQuery } from "./services/api";
@@ -45,28 +40,6 @@ const SessionCheck = memo(function SessionCheck({
 /* =====================
    Page Transition
 ===================== */
-
-function NavigationProgress() {
-  const navigation = useNavigation();
-  const isNavigating = navigation.state === "loading";
-
-  return (
-    <AnimatePresence>
-      {isNavigating && (
-        <motion.div
-          key="progress"
-          className="fixed top-0 left-0 z-9999 h-0.5 w-full origin-left"
-          style={{ background: "var(--gold)" }}
-          initial={{ scaleX: 0, opacity: 1 }}
-          animate={{ scaleX: 0.9 }}
-          exit={{ scaleX: 1, opacity: 0 }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
-        />
-      )}
-    </AnimatePresence>
-  );
-}
-
 function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
@@ -100,7 +73,6 @@ export function AppShell() {
       {/* App */}
       {!isLoading && (
         <>
-          <NavigationProgress />
           <PageTransition>
             <Outlet />
           </PageTransition>
