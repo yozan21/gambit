@@ -95,13 +95,7 @@ export function AppShell() {
   return (
     <SessionCheck>
       {/* Loading screen */}
-      <AnimatePresence>
-        {isLoading && (
-          <motion.div key="loading" exit={{ opacity: 0 }}>
-            <LoadingScreen />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AnimatePresence>{isLoading && <LoadingScreen />}</AnimatePresence>
 
       {/* App */}
       {!isLoading && (
