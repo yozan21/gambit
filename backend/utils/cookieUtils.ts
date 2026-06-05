@@ -25,10 +25,12 @@ export const setAuthCookies = (
 };
 
 export const clearAuthCookies = (res: FastifyReply) => {
-  res.clearCookie("accessToken", {
+  const options = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "none" as const,
     path: "/",
-  });
-  res.clearCookie("refreshToken", {
-    path: "/",
-  });
+  };
+  res.clearCookie("accessToken", options);
+  res.clearCookie("refreshToken", options);
 };
