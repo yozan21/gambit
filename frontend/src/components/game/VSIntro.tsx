@@ -49,8 +49,8 @@ export default function VSIntro({ me, opponent, onComplete }: VSIntroProps) {
           {/* Opponent - starts center, moves to top */}
           <motion.div
             initial={{ y: 0, opacity: 0 }}
-            animate={{ y: -180, opacity: 1 }} // Move up to where PlayerInfo will be
-            exit={{ y: -220, opacity: 0 }}
+            animate={{ y: "-30vh", opacity: 1 }} // Move up to where PlayerInfo will be
+            exit={{ y: "-35vh", opacity: 0 }}
             transition={{
               duration: 0.8,
               delay: 1.5, // Show for 1.5s, then move
@@ -109,8 +109,8 @@ export default function VSIntro({ me, opponent, onComplete }: VSIntroProps) {
           {/* You - starts center, moves to bottom */}
           <motion.div
             initial={{ y: 0, opacity: 0 }}
-            animate={{ y: 180, opacity: 1 }} // Move down to where PlayerInfo will be
-            exit={{ y: 220, opacity: 0 }}
+            animate={{ y: "30vh", opacity: 1 }} // Move down to where PlayerInfo will be
+            exit={{ y: "35vh", opacity: 0 }}
             transition={{
               duration: 0.8,
               delay: 1.5, // Show for 1.5s, then move
