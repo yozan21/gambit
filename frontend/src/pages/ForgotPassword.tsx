@@ -225,11 +225,9 @@ export default function ForgotPassword() {
             </span>
 
             {retryAfter > 0 && (
-              <span
-                className="font-mono text-xs tabular-nums"
-                style={{ color: "var(--gold)" }}
-              >
-                0:{String(retryAfter).padStart(2, "0")}
+              <span className="font-mono text-xs text-primary tabular-nums">
+                {Math.floor(retryAfter / 60)}:
+                {String(retryAfter % 60).padStart(2, "0")}
               </span>
             )}
           </div>
