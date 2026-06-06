@@ -1,5 +1,5 @@
 // pages/ForgotPassword.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ export default function ForgotPassword() {
   usePageTitle("Forgot Password");
 
   const navigate = useNavigate();
+  const [retryAfter, setRetryAfter] = useState(0);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -51,12 +52,32 @@ export default function ForgotPassword() {
   };
 
   /* ── Step 2 — OTP ── */
+  // Start countdown after OTP is sent (call this when step becomes "otp")
+  useEffect(() => {
+    if (step === "otp") setRetryAfter(120);
+  }, [step]);
+
+  useEffect(() => {
+    if (retryAfter <= 0) return;
+    const timer = setTimeout(() => setRetryAfter((prev) => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [retryAfter]);
   const {
     register: registerOtp,
     handleSubmit: handleOtpSubmit,
     setError: setOtpError,
     formState: { errors: otpErrors, isSubmitting: isOtpSubmitting },
   } = useForm<{ otp: string }>();
+
+  const handleResend = async () => {
+    try {
+      await forgotPassword({ email }).unwrap(); // your API call
+      setRetryAfter(60);
+    } catch (err: any) {
+      const seconds = err?.data?.retryAfter;
+      if (seconds) setRetryAfter(seconds);
+    }
+  };
 
   const onOtpSubmit = async (data: { otp: string }) => {
     try {
@@ -190,6 +211,26 @@ export default function ForgotPassword() {
           >
             ← Back
           </button>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Didn't get the code?{" "}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={retryAfter > 0}
+                className="text-primary underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Resend
+              </button>
+            </span>
+
+            {retryAfter > 0 && (
+              <span className="font-mono text-xs text-primary tabular-nums">
+                {Math.floor(retryAfter / 60)}:
+                {String(retryAfter % 60).padStart(2, "0")}
+              </span>
+            )}
+          </div>
         </form>
       )}
 
