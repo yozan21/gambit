@@ -71,24 +71,36 @@ export async function forgotPassword(req: FastifyRequest, reply: FastifyReply) {
 
   const user = await User.findOne({ email });
   if (!user) {
-    // Don't reveal if email exists — always return success
     return reply.send({
       success: true,
       message: "If this email exists, an OTP has been sent",
     });
   }
 
-  // Generate 6 digit OTP
+  // Check 60s cooldown
+  const existing = await Otp.findOne({ email });
+  if (existing) {
+    const secondsSinceLastSent =
+      (Date.now() - existing.lastSentAt.getTime()) / 1000;
+    if (secondsSinceLastSent < 120) {
+      const retryAfter = Math.ceil(120 - secondsSinceLastSent);
+      return reply.status(429).send({
+        success: false,
+        message: `Please wait ${retryAfter} seconds before requesting another OTP`,
+        retryAfter,
+      });
+    }
+  }
+
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  // Delete any existing OTP for this email
   await Otp.deleteMany({ email });
 
-  // Save new OTP
   await Otp.create({
     email,
     otp,
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    lastSentAt: new Date(),
   });
 
   await sendOtpEmail(email, otp);
