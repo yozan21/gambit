@@ -90,11 +90,25 @@ export default function Signup() {
       footerLinkTo="/login"
       footer={
         <p className="text-center text-sm text-muted-foreground">
+          By continuing, you agree to our{" "}
+          <Link
+            to="/terms"
+            className="text-primary hover:underline hover:underline-offset-2"
+          >
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link
+            to="/privacy-policy"
+            className="text-primary hover:underline hover:underline-offset-2"
+          >
+            Privacy Policy
+          </Link>
+          <br />
           Already have an account?{" "}
           <Link
             to="/login"
-            className="font-medium transition-colors"
-            style={{ color: "var(--gold)" }}
+            className="font-medium text-primary transition-colors"
           >
             Sign in
           </Link>

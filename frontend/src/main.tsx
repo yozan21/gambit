@@ -23,6 +23,8 @@ import CreateRoom from "./pages/Createroom.tsx";
 import JoinRoom from "./pages/JoinRoom.tsx";
 import ComingSoon from "./pages/ComingSoon.tsx";
 import ErrorPage from "./pages/ErrorPage.tsx";
+import TermsOfService from "./pages/TermsOfService.tsx";
+import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
 
 /* =====================
    Router Configuration
@@ -93,6 +95,14 @@ export const router = createBrowserRouter([
       {
         path: "/forgot-password",
         element: <ForgotPassword />,
+      },
+      {
+        path: "/terms",
+        element: <TermsOfService />,
+      },
+      {
+        path: "/privacy-policy",
+        element: <PrivacyPolicy />,
       },
       {
         path: "*",
