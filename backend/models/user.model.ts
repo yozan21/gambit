@@ -8,7 +8,9 @@ export interface IUser {
   username: string;
   fullName: string;
   email: string;
-  password: string;
+  googleId?: string;
+  avatar?: string;
+  password?: string;
 
   role: "user" | "admin";
 
@@ -81,9 +83,19 @@ const UserSchema = new Schema<
 
     password: {
       type: String,
-      required: [true, "Password is required!"],
+      required: false,
       select: false, // hidden by default
       minlength: 8,
+    },
+    googleId: {
+      type: String,
+      sparse: true, // allows null but enforces unique when set
+      unique: true,
+      index: true,
+    },
+
+    avatar: {
+      type: String,
     },
 
     role: {
@@ -131,6 +143,7 @@ const UserSchema = new Schema<
 ================================ */
 UserSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
+  if (!this.password) return false;
   this.password = await bcrypt.hash(this.password, 12);
 });
 
@@ -140,6 +153,7 @@ UserSchema.pre("save", async function () {
 UserSchema.methods.isCorrectPassword = async function (
   candidatePassword: string,
 ) {
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 

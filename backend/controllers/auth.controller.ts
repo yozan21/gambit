@@ -4,6 +4,11 @@ import {
   refreshService,
   signupService,
 } from "../services/auth.service.js";
+import crypto from "crypto";
+import {
+  googleLoginService,
+  googleSignupService,
+} from "../services/auth.service.js";
 import type { LoginBody, SignupBody } from "../utils/types.js";
 import apiResponse from "../utils/apiResponse.js";
 import { User } from "../models/user.model.js";
@@ -36,6 +41,115 @@ export const signup = async (
   return apiResponse(reply, {
     statusCode: 201,
     message: "Signup successful",
+    data: { user },
+  });
+};
+
+export const googleCallback = async (
+  req: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+
+  try {
+    // @ts-ignore
+    const token =
+      await req.server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(
+        req,
+      );
+
+    const profileRes = await fetch(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      {
+        headers: { Authorization: `Bearer ${token.token.access_token}` },
+      },
+    );
+    const profile = (await profileRes.json()) as {
+      id: string;
+      email: string;
+      name: string;
+      given_name: string;
+      family_name: string;
+      picture: string;
+    };
+
+    let user = await User.findOne({
+      $or: [{ googleId: profile.id }, { email: profile.email }],
+    });
+
+    if (user) {
+      if (!user.googleId) {
+        user.googleId = profile.id;
+        if (!user.avatar) user.avatar = profile.picture;
+        await user.save();
+      }
+      const { tokens } = await googleLoginService(user._id);
+      setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
+      return reply.redirect(`${clientUrl}/`);
+    }
+    console.log("Available server decorators:", Object.keys(req.server));
+    console.log("Is accessJwt present?:", !!req.server.accessJwt);
+    // New user — temp token
+    const tempToken = req.server.accessJwt.sign(
+      {
+        googleId: profile.id,
+        email: profile.email,
+        fullName: profile.name,
+        avatar: profile.picture,
+        isGoogleTemp: true,
+      },
+      { expiresIn: "5m" },
+    );
+
+    const base = `${profile.given_name}_${profile.family_name}`
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "");
+    const suffix = crypto.randomInt(1000, 9999);
+    const suggestedUsername = `${base}_${suffix}`;
+
+    return reply.redirect(
+      `${clientUrl}/complete-profile?token=${tempToken}&username=${suggestedUsername}`,
+    );
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    return reply.redirect(`${clientUrl}/login?error=oauth_failed`);
+  }
+};
+
+export const completeGoogleProfile = async (
+  req: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  const { token, username, fullName } = req.body as {
+    token: string;
+    username: string;
+    fullName: string;
+  };
+
+  let payload: any;
+  try {
+    payload = req.server.accessJwt.verify(token);
+  } catch {
+    throw new ApiError("Invalid or expired session. Please try again.", 400);
+  }
+
+  if (!payload.isGoogleTemp) throw new ApiError("Invalid token", 400);
+
+  const existingUsername = await User.findOne({ username });
+  if (existingUsername) throw new ApiError("Username already taken", 400);
+
+  const { tokens, user } = await googleSignupService({
+    googleId: payload.googleId,
+    email: payload.email,
+    fullName,
+    username,
+    avatar: payload.avatar,
+  });
+
+  setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
+  return apiResponse(reply, {
+    statusCode: 201,
+    message: "Account created successfully",
     data: { user },
   });
 };

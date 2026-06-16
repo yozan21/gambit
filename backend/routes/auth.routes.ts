@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
+  completeGoogleProfile,
   forgotPassword,
+  googleCallback,
   login,
   logout,
   refresh,
@@ -49,6 +51,9 @@ const authRoutes = async function (app: FastifyInstance) {
     handler: signup,
   });
 
+  app.get("/google/callback", googleCallback);
+  app.post("/google/complete", completeGoogleProfile);
+
   app.post("/refresh", refresh);
   app.post("/logout", logout);
 
@@ -61,6 +66,12 @@ const authRoutes = async function (app: FastifyInstance) {
 
     const existing = await User.findOne({ username });
     return reply.send({ available: !existing });
+  });
+
+  app.post("/check-email", async (req, reply) => {
+    const { email } = req.body as { email: string };
+    const user = await User.findOne({ email });
+    return reply.send({ exists: !!user });
   });
 
   app.post("/forgot-password", {
