@@ -92,6 +92,10 @@ export const api = createApi({
       query: (username) => `/auth/check-username?username=${username}`,
     }),
 
+    checkEmail: builder.mutation<{ exists: boolean }, { email: string }>({
+      query: (body) => ({ url: "/auth/check-email", method: "POST", body }),
+    }),
+
     // Get current logged in user
     // Used for session restore on app load
     getMe: builder.query<UserResponse, void>({
@@ -144,6 +148,7 @@ export const {
   useSignupMutation,
   useLogoutMutation,
   useLazyCheckUsernameQuery,
+  useCheckEmailMutation,
   useGetMeQuery,
   useGetUserByIdQuery,
   useGetUsersQuery,

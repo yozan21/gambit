@@ -1,4 +1,5 @@
 // import jwt, { type SignOptions } from "jsonwebtoken";
+import mongoose from "mongoose";
 import { User, type IUser, type UserDocument } from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
 import type {
@@ -70,5 +71,26 @@ export async function refreshService(data: RefreshParams) {
   )
     throw new ApiError("Unauthorized", 403);
 
+  return await createSendToken(user);
+}
+
+export async function googleLoginService(
+  userId: mongoose.Types.ObjectId,
+): Promise<{ tokens: TokenPair; user: object }> {
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError("User not found", 404);
+  user.tokenVersion += 1;
+  await user.save();
+  return await createSendToken(user);
+}
+
+export async function googleSignupService(data: {
+  googleId: string;
+  email: string;
+  fullName: string;
+  username: string;
+  avatar?: string;
+}): Promise<{ tokens: TokenPair; user: object }> {
+  const user = await User.create(data);
   return await createSendToken(user);
 }

@@ -2,6 +2,7 @@ import fastifyFormBody from "@fastify/formbody";
 import jwt from "@fastify/jwt";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
 
 import userRoutes from "./routes/user.routes.js";
@@ -13,8 +14,9 @@ import socket from "./plugins/socket.js";
 import ajvErrors from "ajv-errors";
 import addFormats from "ajv-formats";
 import { Ajv } from "ajv";
+import oauth2, { fastifyOauth2 } from "@fastify/oauth2";
 
-export async function buildApp(app: FastifyInstance) {
+async function buildAppRaw(app: FastifyInstance) {
   // Plugins
   // 1. Initialize AJV with allErrors: true (required for ajv-errors)
   const ajv = new Ajv({
@@ -58,6 +60,21 @@ export async function buildApp(app: FastifyInstance) {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
+  // Add after cors registration
+  await app.register(oauth2, {
+    name: "googleOAuth2",
+    scope: ["profile", "email"],
+    credentials: {
+      client: {
+        id: process.env.GOOGLE_CLIENT_ID!,
+        secret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+      auth: fastifyOauth2.GOOGLE_CONFIGURATION,
+    },
+    startRedirectPath: "/api/v1/auth/google",
+    callbackUri: process.env.GOOGLE_CALLBACK_URL!,
+  });
+
   //DATABASE
   await app.register(mongoDB);
 
@@ -99,3 +116,5 @@ export async function buildApp(app: FastifyInstance) {
     throw new ApiError(`Cannot ${req.method} ${req.url} on this server`, 404);
   });
 }
+
+export const buildApp = fp(buildAppRaw);
