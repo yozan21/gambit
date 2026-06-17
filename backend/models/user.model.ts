@@ -21,6 +21,9 @@ export interface IUser {
     wins: number;
     losses: number;
     draws: number;
+    botGamesPlayed: number;
+    botWins: number;
+    botLooses: number;
   };
 
   games: mongoose.Types.ObjectId[];
@@ -115,6 +118,9 @@ const UserSchema = new Schema<
       wins: { type: Number, default: 0 },
       losses: { type: Number, default: 0 },
       draws: { type: Number, default: 0 },
+      botGamesPlayed: { type: Number, default: 0 },
+      botWins: { type: Number, default: 0 },
+      botLosses: { type: Number, default: 0 },
     },
 
     games: [

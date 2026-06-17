@@ -16,6 +16,7 @@ import { Otp } from "../models/otp.model.js";
 import { sendOtpEmail } from "../services/email.service.js";
 import ApiError from "../utils/ApiError.js";
 import { clearAuthCookies, setAuthCookies } from "../utils/cookieUtils.js";
+import { generateOAuthToken, verifyOAuthToken } from "../utils/tokenUtils.js";
 
 export const login = async (
   req: FastifyRequest<{ Body: LoginBody }>,
@@ -83,23 +84,18 @@ export const googleCallback = async (
         if (!user.avatar) user.avatar = profile.picture;
         await user.save();
       }
-      const { tokens } = await googleLoginService(user._id);
+      const { tokens } = await googleLoginService(user);
       setAuthCookies(reply, tokens.accessToken, tokens.refreshToken);
       return reply.redirect(`${clientUrl}/`);
     }
-    console.log("Available server decorators:", Object.keys(req.server));
-    console.log("Is accessJwt present?:", !!req.server.accessJwt);
     // New user — temp token
-    const tempToken = req.server.accessJwt.sign(
-      {
-        googleId: profile.id,
-        email: profile.email,
-        fullName: profile.name,
-        avatar: profile.picture,
-        isGoogleTemp: true,
-      },
-      { expiresIn: "5m" },
-    );
+    const tempToken = await generateOAuthToken({
+      googleId: profile.id,
+      email: profile.email,
+      fullName: profile.name,
+      avatar: profile.picture,
+      isGoogleTemp: true,
+    });
 
     const base = `${profile.given_name}_${profile.family_name}`
       .toLowerCase()
@@ -108,7 +104,7 @@ export const googleCallback = async (
     const suggestedUsername = `${base}_${suffix}`;
 
     return reply.redirect(
-      `${clientUrl}/complete-profile?token=${tempToken}&username=${suggestedUsername}`,
+      `${clientUrl}/signup-complete?token=${tempToken}&username=${suggestedUsername}&fullname=${profile.name}`,
     );
   } catch (err) {
     console.error("Google OAuth error:", err);
@@ -126,9 +122,9 @@ export const completeGoogleProfile = async (
     fullName: string;
   };
 
-  let payload: any;
+  let payload;
   try {
-    payload = req.server.accessJwt.verify(token);
+    payload = await verifyOAuthToken(token);
   } catch {
     throw new ApiError("Invalid or expired session. Please try again.", 400);
   }
@@ -141,7 +137,7 @@ export const completeGoogleProfile = async (
   const { tokens, user } = await googleSignupService({
     googleId: payload.googleId,
     email: payload.email,
-    fullName,
+    fullName: fullName ?? payload.fullName,
     username,
     avatar: payload.avatar,
   });

@@ -18,7 +18,6 @@ const SessionCheck = memo(function SessionCheck({
 }) {
   const dispatch = useAppDispatch();
   const { data, isError, isSuccess } = useGetMeQuery();
-  console.log(data);
 
   useEffect(() => {
     if (isSuccess && data) {

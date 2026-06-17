@@ -8,12 +8,16 @@ import type {
 
 export interface IGameRecord extends Document {
   gameId: string;
+  status: "in_progress" | "completed" | "abandoned";
+  hintsUsed: number;
+  hintsAllowed: number;
   whitePlayer: mongoose.Types.ObjectId | null;
   blackPlayer: mongoose.Types.ObjectId | null;
   winner: PlayerColor | null;
   result: Result;
   moves: MoveEntry[];
   mode: GameMode;
+  botLevel: number | null;
   history: string[];
   finalFen: string;
   duration: number;
@@ -65,6 +69,7 @@ const GameRecordSchema = new Schema<IGameRecord>(
       required: true,
       enum: ["bot", "friend", "ranked"],
     },
+    botLevel: { type: Number, default: null },
     history: [String],
     finalFen: { type: String, required: true },
     duration: { type: Number, required: true },

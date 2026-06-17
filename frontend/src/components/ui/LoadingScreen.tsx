@@ -30,6 +30,14 @@ export default function LoadingScreen() {
           filter: "blur(40px)",
         }}
       />
+      <motion.img
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        src="/Gambit9.svg"
+        alt="Gambit Logo"
+        className="h-30 w-30"
+      />
 
       {/* Logo */}
       <NavLogo animate size="lg" />

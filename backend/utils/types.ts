@@ -24,6 +24,14 @@ export interface JwtPayload {
   tokenVersion?: number;
 }
 
+export interface OAuthPayload {
+  googleId: string;
+  email: string;
+  fullName: string;
+  avatar: string;
+  isGoogleTemp: boolean;
+}
+
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -145,6 +153,66 @@ export interface ServerToClientEvents {
   moveError: (data: { message: string }) => void;
 
   roomError: (data: { message: string }) => void;
+
+  botGameCreated: (data: {
+    gameId: string;
+    color: PlayerColor;
+    level: number;
+    hintsRemaining: number;
+  }) => void;
+
+  botMoveMade: (data: {
+    ok: boolean;
+    fen: string;
+    move: MoveEntry;
+    turn: PlayerColor;
+    status: "ongoing" | "check" | "ended" | null;
+    result: Result | null;
+    winner: PlayerColor | null;
+    soundType: "move" | "capture" | "castle" | "promote" | "check" | "end";
+  }) => void;
+
+  botMove: (data: {
+    ok: boolean;
+    fen: string;
+    move: MoveEntry;
+    turn: PlayerColor;
+    status: "ongoing" | "check" | "ended" | null;
+    result: Result | null;
+    winner: PlayerColor | null;
+    soundType: "move" | "capture" | "castle" | "promote" | "check" | "end";
+  }) => void;
+
+  hintResponse: (data: {
+    from: string;
+    to: string;
+    hintsRemaining: number;
+  }) => void;
+
+  hintDenied: (data: { reason: "ad_required" | "premium_required" }) => void;
+
+  undoConfirmed: (data: {
+    fen: string;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+  }) => void;
+
+  botGameOver: (data: {
+    result: Result;
+    winner: PlayerColor | null;
+    message: string;
+    levelUnlocked?: number;
+  }) => void;
+
+  botGameResume: (data: {
+    gameId: string;
+    fen: string;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+    level: number;
+    hintsRemaining: number;
+    color: PlayerColor;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -160,6 +228,17 @@ export interface ClientToServerEvents {
   }) => void;
   resign: (gameId: string) => void;
   restoreGame: (gameId: string) => void;
+  startBotGame: (data: { level: number }) => void;
+  botMakeMove: (data: {
+    gameId: string;
+    from: string;
+    to: string;
+    promotion?: "q" | "r" | "n" | "b";
+  }) => void;
+  requestHint: (data: { gameId: string }) => void;
+  undoMove: (data: { gameId: string }) => void;
+  restartBotGame: (data: { gameId: string }) => void;
+  continueBotGame: (data: { gameId: string }) => void;
 }
 
 export type TypedSocket = Socket<

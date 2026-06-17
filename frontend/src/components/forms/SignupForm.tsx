@@ -80,7 +80,7 @@ export default function Signup() {
       dispatch(
         loginSuccess({ user: result.data.user, token: result.data.token }),
       );
-      toast.success("Account created successfully!");
+      toast.success(`Gambit welcomes ${result.data.user.username}!`);
       navigate("/");
     } catch (error) {
       if (!isApiError(error)) return;

@@ -9,6 +9,7 @@ import type {
   NoDataResponse,
   UpdateProfileRequest,
   UpdatePasswordRequest,
+  SignupCompleteRequest,
 } from "../types/user.types";
 import { baseQueryWithReauth } from "../utils/fetchBaseQueryFn";
 import type { GameRecordResponse } from "@/types/game.types";
@@ -43,6 +44,14 @@ export const api = createApi({
     signup: builder.mutation<AuthResponse, SignupRequest>({
       query: (body) => ({
         url: "/auth/signup",
+        method: "POST",
+        body,
+      }),
+    }),
+
+    signupComplete: builder.mutation<AuthResponse, SignupCompleteRequest>({
+      query: (body) => ({
+        url: "/auth/google/complete",
         method: "POST",
         body,
       }),
@@ -146,6 +155,7 @@ export const api = createApi({
 export const {
   useLoginMutation,
   useSignupMutation,
+  useSignupCompleteMutation,
   useLogoutMutation,
   useLazyCheckUsernameQuery,
   useCheckEmailMutation,

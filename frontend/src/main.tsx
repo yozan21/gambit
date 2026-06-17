@@ -25,6 +25,7 @@ import ComingSoon from "./pages/ComingSoon.tsx";
 import ErrorPage from "./pages/ErrorPage.tsx";
 import TermsOfService from "./pages/TermsOfService.tsx";
 import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
+import CompleteSignup from "./components/forms/CompleteSignup.tsx";
 
 /* =====================
    Router Configuration
@@ -69,6 +70,10 @@ export const router = createBrowserRouter([
       {
         path: "/signup",
         element: <Signup />,
+      },
+      {
+        path: "/signup-complete",
+        element: <CompleteSignup />,
       },
       {
         path: "/profile",

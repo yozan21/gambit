@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import type { JwtPayload, TokenPair } from "../utils/types.js";
+import type { JwtPayload, OAuthPayload, TokenPair } from "../utils/types.js";
 
 // Helper to sign tokens asynchronously
 const signAsync = (
@@ -58,4 +58,33 @@ export const verifyRefreshToken = async (
   token: string,
 ): Promise<JwtPayload> => {
   return verifyAsync(token, process.env.JWT_REFRESH_SECRET!);
+};
+
+// 4. Asynchronous Google OAuth token generation
+export const generateOAuthToken = async (payload: OAuthPayload) => {
+  return new Promise((resolve, reject) => {
+    // Passing a callback as the 4th argument offloads it to the thread pool
+    jwt.sign(
+      payload,
+      process.env.JWT_OAUTH_SECRET!,
+      { expiresIn: "5m" },
+      (err, token) => {
+        if (err) return reject(err);
+        resolve(token!);
+      },
+    );
+  });
+};
+
+// 5. Asynchronous OAuth Token Verification
+export const verifyOAuthToken = async (
+  token: string,
+): Promise<OAuthPayload> => {
+  return new Promise((resolve, reject) => {
+    // Passing a callback as the 3rd argument makes it asynchronous
+    jwt.verify(token, process.env.JWT_OAUTH_SECRET!, (err, decoded) => {
+      if (err) return reject(err);
+      resolve(decoded as OAuthPayload);
+    });
+  });
 };

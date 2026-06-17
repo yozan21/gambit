@@ -75,10 +75,8 @@ export async function refreshService(data: RefreshParams) {
 }
 
 export async function googleLoginService(
-  userId: mongoose.Types.ObjectId,
+  user: UserDocument,
 ): Promise<{ tokens: TokenPair; user: object }> {
-  const user = await User.findById(userId);
-  if (!user) throw new ApiError("User not found", 404);
   user.tokenVersion += 1;
   await user.save();
   return await createSendToken(user);

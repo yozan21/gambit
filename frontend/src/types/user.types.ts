@@ -44,6 +44,12 @@ export interface SignupRequest {
   confirmPassword: string;
 }
 
+export interface SignupCompleteRequest {
+  token: string;
+  username: string;
+  fullName: string;
+}
+
 export interface UpdateProfileRequest {
   username?: string;
   fullName?: string;
