@@ -5,11 +5,15 @@ export interface AuthUser {
   email: string;
   avatar?: string;
   elo: number;
+  unlockedBotLevel: number;
   stats: {
     gamesPlayed: number;
     wins: number;
     losses: number;
     draws: number;
+    botGamesPlayed: number;
+    botWins: number;
+    botLosses: number;
   };
   games: string[];
   createdAt: string;

@@ -21,11 +21,13 @@ import ForgotPassword from "./pages/ForgotPassword.tsx";
 import FriendLobby from "./pages/FriendLobby.tsx";
 import CreateRoom from "./pages/Createroom.tsx";
 import JoinRoom from "./pages/JoinRoom.tsx";
-import ComingSoon from "./pages/ComingSoon.tsx";
 import ErrorPage from "./pages/ErrorPage.tsx";
 import TermsOfService from "./pages/TermsOfService.tsx";
 import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
 import CompleteSignup from "./components/forms/CompleteSignup.tsx";
+import { registerBotSocketListeners } from "./services/botSocket.ts";
+import BotLobby from "./pages/BotLobby.tsx";
+import BotGame from "./pages/BotGame.tsx";
 
 /* =====================
    Router Configuration
@@ -41,8 +43,9 @@ export const router = createBrowserRouter([
       },
       {
         path: "/play/bot",
-        element: <ComingSoon />,
+        element: <BotLobby />,
       },
+      { path: "/play/bot/game/:gameId", element: <BotGame /> },
       {
         path: "/play/friend",
         element: <FriendLobby />,
@@ -121,6 +124,10 @@ registerSocketListeners({
   dispatch: store.dispatch,
   getState: store.getState,
   navigate: (path) => router.navigate(path),
+});
+registerBotSocketListeners({
+  dispatch: store.dispatch,
+  getState: store.getState,
 });
 
 createRoot(document.getElementById("root")!).render(

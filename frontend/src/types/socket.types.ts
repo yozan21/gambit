@@ -93,6 +93,79 @@ export interface ServerToClientEvents {
   error: (data: { message: string }) => void;
   moveError: (data: { message: string }) => void;
   roomError: (data: { message: string }) => void;
+
+  // Bot Game Events
+  botGameCreated: (data: {
+    gameId: string;
+    color: PlayerColor;
+    level: number;
+    hintsRemaining: number;
+  }) => void;
+
+  botGameResume: (data: {
+    gameId: string;
+    fen: string;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+    level: number;
+    hintsRemaining: number;
+    color: PlayerColor;
+  }) => void;
+
+  botMoveMade: (data: {
+    ok: boolean;
+    fen: string;
+    move: MoveEntry;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+    status: BoardStatus;
+    result: GameResult | null;
+    winner: PlayerColor | null;
+    soundType: "move" | "capture" | "castle" | "promote" | "check" | "end";
+  }) => void;
+
+  botMove: (data: {
+    ok: boolean;
+    fen: string;
+    move: MoveEntry;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+    status: BoardStatus;
+    result: GameResult | null;
+    winner: PlayerColor | null;
+    soundType: "move" | "capture" | "castle" | "promote" | "check" | "end";
+  }) => void;
+
+  hintResponse: (data: {
+    from: string;
+    to: string;
+    hintsRemaining: number;
+  }) => void;
+
+  hintDenied: (data: { reason: string }) => void;
+
+  hintGranted: (data: { hintsRemaining: number }) => void;
+
+  undoConfirmed: (data: {
+    fen: string;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+  }) => void;
+
+  botGameStalled: (data: {
+    result: GameResult;
+    winner: PlayerColor | null;
+    fen: string;
+    move: MoveEntry;
+    moves: MoveEntry[];
+  }) => void;
+
+  botGameOver: (data: {
+    result: GameResult;
+    winner: PlayerColor | null;
+    message: string;
+    levelUnlocked?: number;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -111,4 +184,24 @@ export interface ClientToServerEvents {
   }) => void;
   resign: (gameId: string) => void;
   restoreGame: (gameId: string) => void;
+
+  // Bot Game Events
+  startBotGame: (data: { level: number; color: "w" | "b" | "random" }) => void;
+
+  botMakeMove: (data: {
+    gameId: string;
+    from: string;
+    to: string;
+    promotion?: "q" | "r" | "n" | "b";
+  }) => void;
+
+  requestHint: (data: { gameId: string }) => void;
+
+  grantAdHint: (data: { gameId: string; adToken?: string }) => void;
+
+  undoMove: (data: { gameId: string }) => void;
+
+  restartBotGame: (data: { gameId: string }) => void;
+
+  continueBotGame: (data: { gameId: string }) => void;
 }

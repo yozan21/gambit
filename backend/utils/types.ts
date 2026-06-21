@@ -189,12 +189,20 @@ export interface ServerToClientEvents {
     hintsRemaining: number;
   }) => void;
 
-  hintDenied: (data: { reason: "ad_required" | "premium_required" }) => void;
+  hintDenied: (data: { reason: string }) => void;
 
   undoConfirmed: (data: {
     fen: string;
     moves: MoveEntry[];
     turn: PlayerColor;
+  }) => void;
+
+  botGameStalled: (data: {
+    result: Result;
+    winner: PlayerColor | null; // null for draws
+    fen: string;
+    move: MoveEntry;
+    moves: MoveEntry[];
   }) => void;
 
   botGameOver: (data: {
@@ -228,7 +236,7 @@ export interface ClientToServerEvents {
   }) => void;
   resign: (gameId: string) => void;
   restoreGame: (gameId: string) => void;
-  startBotGame: (data: { level: number }) => void;
+  startBotGame: (data: { level: number; color: "w" | "b" | "random" }) => void;
   botMakeMove: (data: {
     gameId: string;
     from: string;
@@ -236,6 +244,10 @@ export interface ClientToServerEvents {
     promotion?: "q" | "r" | "n" | "b";
   }) => void;
   requestHint: (data: { gameId: string }) => void;
+  grantAdHint: (data: {
+    gameId: string;
+    adToken?: string; // From ad provider
+  }) => void;
   undoMove: (data: { gameId: string }) => void;
   restartBotGame: (data: { gameId: string }) => void;
   continueBotGame: (data: { gameId: string }) => void;

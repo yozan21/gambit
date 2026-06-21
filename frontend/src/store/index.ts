@@ -2,12 +2,14 @@ import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import chessReducer from "./chess/chessSlice";
 import authReducer from "./auth/authSlice";
+import botReducer from "./bot/botSlice";
 import { api } from "../services/api";
 
 export const store = configureStore({
   reducer: {
     chess: chessReducer,
     auth: authReducer,
+    botChess: botReducer,
     [api.reducerPath]: api.reducer,
   },
   middleware: (getDefaultMiddleware) =>

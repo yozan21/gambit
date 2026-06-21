@@ -5,12 +5,17 @@ import type {
   QueuedPlayer,
   ClocksType,
   GameMode,
+  PlayerColor,
+  GamePlayer,
+  Result,
 } from "./utils/types.js";
 import { gameManager } from "./Game/GameManager.js";
 import MatchmakingQueue from "./Game/MatchMakingQueue.js";
 import { getOneUser } from "./services/user.service.js";
 import fastifyCookie from "@fastify/cookie";
 import { roomManager } from "./Game/RoomManager.js";
+import { botGameManager } from "./Game/BotGameManager.js";
+import { GameRecord } from "./models/gameRecord.model.js";
 
 function verifyToken(token: string, secret: string) {
   try {
@@ -163,8 +168,6 @@ export default function socketServer(io: Server) {
 
   /* ================= CONNECTION ================= */
   io.on("connection", (socket: TypedSocket) => {
-    console.log("Socket connected:", socket.id);
-
     /* ========= MATCHMAKING ========= */
     socket.on("startGameRanked", () => {
       const activeGame = gameManager.getGameByUserId(socket.data.userId);
@@ -428,10 +431,350 @@ export default function socketServer(io: Server) {
       }
     });
 
+    /* ========= BOT GAME ========= */
+    socket.on("startBotGame", async ({ level, color }) => {
+      // Check if already in a multiplayer game
+      const activeGame = gameManager.getGameByUserId(socket.data.userId);
+      if (activeGame) {
+        return socket.emit("inGame", {
+          gameId: activeGame.id,
+          mode: activeGame.mode,
+          message: "You are already in a running game.",
+        });
+      }
+
+      // Check for existing in-progress bot game
+      const existingBotGame = botGameManager.getGameByUserId(
+        socket.data.userId,
+      );
+      if (existingBotGame) {
+        return socket.emit("botGameResume", {
+          gameId: existingBotGame.id,
+          fen: existingBotGame.getFen(),
+          moves: existingBotGame.moves,
+          turn: existingBotGame.getTurn(),
+          level: existingBotGame.level,
+          hintsRemaining: existingBotGame.getHintsRemaining(),
+          color: existingBotGame.playerColor,
+        });
+      }
+
+      // Check for in-progress bot game in DB
+      const savedGame = await GameRecord.findOne({
+        $or: [
+          { whitePlayer: socket.data.userId },
+          { blackPlayer: socket.data.userId },
+        ],
+        mode: "bot",
+        status: "in_progress",
+      }).sort({ updatedAt: -1 });
+
+      if (savedGame) {
+        // Restore game into memory
+        const playerColor: PlayerColor =
+          savedGame.whitePlayer?.toString() === socket.data.userId ? "w" : "b";
+
+        const player: GamePlayer = {
+          socketId: socket.id,
+          userId: socket.data.userId,
+          username: socket.data.username,
+          elo: socket.data.elo,
+          color: playerColor,
+        };
+
+        const game = botGameManager.createGame(
+          player,
+          savedGame.botLevel!,
+          playerColor,
+        );
+
+        // Restore state
+        for (const move of savedGame.moves) {
+          const moveObj: { from: string; to: string; promotion?: string } = {
+            from: move.from,
+            to: move.to,
+          };
+          if (move.promotion) moveObj.promotion = move.promotion;
+          game.chess.move(moveObj);
+        }
+        game.moves = savedGame.moves as any;
+        game.history = savedGame.history ?? [];
+        game.hintsUsed = savedGame.hintsUsed ?? 0;
+        game.hintsAllowed = savedGame.hintsAllowed ?? 3;
+        game.startedAt = savedGame.startedAt;
+
+        return socket.emit("botGameResume", {
+          gameId: game.id,
+          fen: game.getFen(),
+          moves: game.moves,
+          turn: game.getTurn(),
+          level: game.level,
+          hintsRemaining: game.getHintsRemaining(),
+          color: playerColor,
+        });
+      }
+
+      // Create fresh bot game — randomly assign color
+      const playerColor: PlayerColor =
+        color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color;
+
+      const player: GamePlayer = {
+        socketId: socket.id,
+        userId: socket.data.userId,
+        username: socket.data.username,
+        elo: socket.data.elo,
+        color: playerColor,
+      };
+
+      const game = botGameManager.createGame(player, level, playerColor);
+
+      socket.emit("botGameCreated", {
+        gameId: game.id,
+        color: playerColor,
+        level,
+        hintsRemaining: game.getHintsRemaining(),
+      });
+
+      // If player is black, bot moves first
+      if (playerColor === "b") {
+        const botRes = await game.getBotMove();
+        if (botRes.ok) {
+          socket.emit("botMove", botRes as any);
+          await game.save("in_progress");
+        }
+      }
+    });
+
+    /* ========= BOT MAKE MOVE ========= */
+    socket.on("botMakeMove", async ({ gameId, from, to, promotion }) => {
+      const game = botGameManager.getGame(gameId);
+      if (!game) return socket.emit("error", { message: "Game not found" });
+
+      if (game.player.userId !== socket.data.userId) {
+        return socket.emit("error", { message: "Unauthorized" });
+      }
+
+      // Apply player move
+      const res = game.applyMove({ from, to, promotion });
+      if (!res.ok) {
+        return socket.emit("moveError", { message: res.message! });
+      }
+
+      if (res.promotionRequired) {
+        return socket.emit("promotionRequest", {
+          ok: true,
+          promotionRequired: true,
+          from: res.from!,
+          to: res.to!,
+        });
+      }
+
+      // Emit player move
+      socket.emit("botMoveMade", res as any);
+
+      // Check if game ended after player move
+      if (res.status === "ended") {
+        const playerWon = res.winner === game.playerColor;
+        await game.save("completed", true);
+
+        // Check level unlock
+        const botGameOverPayload: {
+          result: Result;
+          winner: PlayerColor | null;
+          message: string;
+          levelUnlocked?: number;
+        } = {
+          result: res.result!,
+          winner: res.winner,
+          message: playerWon ? "You win! 🎉" : "It's a draw!",
+        };
+
+        if (playerWon) {
+          botGameOverPayload.levelUnlocked = game.level + 1;
+        }
+
+        socket.emit("botGameOver", botGameOverPayload);
+
+        botGameManager.removeGame(gameId);
+        return;
+      }
+
+      // Save state after player move
+      await game.save("in_progress");
+
+      // Bot responds
+      const botRes = await game.getBotMove();
+      if (!botRes.ok) {
+        return socket.emit("error", { message: botRes.message ?? "Bot error" });
+      }
+
+      socket.emit("botMove", botRes as any);
+
+      // Check if game ended after bot move
+      if (botRes.status === "ended") {
+        await game.save("in_progress"); // keep alive for undo
+        // botGameOver NOT emitted here — frontend shows undo/retry overlay
+
+        socket.emit("botGameStalled", {
+          result: botRes.result!,
+          winner: botRes.winner!, // null for draws
+          fen: botRes.fen!,
+          move: botRes.move!,
+          moves: botRes.moves!,
+        });
+        return;
+      }
+      // if (botRes.status === "ended") {
+      //   await game.save("completed");
+
+      //   socket.emit("botGameOver", {
+      //     result: botRes.result!,
+      //     winner: botRes.winner!,
+      //     message:
+      //       botRes.winner === game.botColor
+      //         ? "Bot wins! Better luck next time."
+      //         : "It's a draw!",
+      //   });
+
+      //   botGameManager.removeGame(gameId);
+      //   return;
+      // }
+
+      // Save state after bot move
+      await game.save("in_progress");
+    });
+
+    /* ========= REQUEST HINT ========= */
+    socket.on("requestHint", async ({ gameId }) => {
+      const game = botGameManager.getGame(gameId);
+      if (!game) return socket.emit("error", { message: "Game not found" });
+
+      if (game.player.userId !== socket.data.userId) {
+        return socket.emit("error", { message: "Unauthorized" });
+      }
+
+      const hint = await game.getHint();
+
+      if (!hint.ok) {
+        return socket.emit("hintDenied", {
+          reason: hint.reason ?? "ad_required",
+        });
+      }
+
+      socket.emit("hintResponse", {
+        from: hint.from!,
+        to: hint.to!,
+        hintsRemaining: hint.hintsRemaining!,
+      });
+    });
+
+    /* ========= GRANT AD HINT ========= */
+
+    socket.on("grantAdHint", async ({ gameId, adToken }) => {
+      const game = botGameManager.getGame(gameId);
+      if (!game) return socket.emit("error", { message: "Game not found" });
+
+      if (game.player.userId !== socket.data.userId) {
+        return socket.emit("error", { message: "Unauthorized" });
+      }
+
+      // TODO: Validate adToken with your ad provider
+      // For now, we grant the hint (you'll add real validation)
+      if (game.isBotThinking)
+        return socket.emit("hintDenied", {
+          reason: "already_processing",
+        });
+      game.useAdHint();
+
+      // Optionally auto-request the hint after granting
+      const hint = await game.getHint();
+      if (hint.ok) {
+        socket.emit("hintResponse", {
+          from: hint.from!,
+          to: hint.to!,
+          hintsRemaining: hint.hintsRemaining!,
+        });
+      }
+    });
+
+    /* ========= UNDO MOVE ========= */
+    socket.on("undoMove", async ({ gameId }) => {
+      const game = botGameManager.getGame(gameId);
+      if (!game) return socket.emit("error", { message: "Game not found" });
+
+      const res = game.undoMove();
+      if (!res.ok) {
+        return socket.emit("error", {
+          message: res.message ?? "Nothing to undo",
+        });
+      }
+
+      socket.emit("undoConfirmed", {
+        fen: res.fen!,
+        moves: res.moves!,
+        turn: res.turn!,
+      });
+
+      await game.save("in_progress");
+    });
+
+    /* ========= RESTART BOT GAME ========= */
+    socket.on("restartBotGame", async ({ gameId }) => {
+      const game = botGameManager.getGame(gameId);
+      if (!game) return socket.emit("error", { message: "Game not found" });
+
+      if (game.phase === "ended") {
+        await game.save("completed");
+      } else await game.save("abandoned"); // Save old game as abandoned
+
+      game.restart();
+
+      socket.emit("botGameCreated", {
+        gameId: game.id,
+        color: game.playerColor,
+        level: game.level,
+        hintsRemaining: game.getHintsRemaining(),
+      });
+
+      // If player is black, bot moves first after restart
+      if (game.playerColor === "b") {
+        const botRes = await game.getBotMove();
+        if (botRes.ok) {
+          socket.emit("botMove", botRes as any);
+          await game.save("in_progress");
+        }
+      }
+    });
+
+    /* ========= CONTINUE BOT GAME ========= */
+    socket.on("continueBotGame", ({ gameId }) => {
+      const game = botGameManager.getGame(gameId);
+      if (!game) return socket.emit("error", { message: "Game not found" });
+
+      socket.emit("botGameResume", {
+        gameId: game.id,
+        fen: game.getFen(),
+        moves: game.moves,
+        turn: game.getTurn(),
+        level: game.level,
+        hintsRemaining: game.getHintsRemaining(),
+        color: game.playerColor,
+      });
+    });
+
     /* ========= DISCONNECT ========= */
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log("disconnected", socket.data.userId);
       matchQueue.removeByUserId(socket.data.userId);
+
+      // Save bot game state on disconnect
+      const activeBotGame = botGameManager.getGameByUserId(socket.data.userId);
+      if (activeBotGame && activeBotGame.phase !== "ended") {
+        await activeBotGame.save("in_progress");
+      } else if (activeBotGame && activeBotGame.phase === "ended") {
+        await activeBotGame.save("completed");
+        botGameManager.removeGame(activeBotGame.id);
+      }
 
       const activeGame = gameManager.getGameByUserId(socket.data.userId);
       if (!activeGame) return;
