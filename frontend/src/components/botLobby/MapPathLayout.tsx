@@ -2,6 +2,7 @@
 import { SVG_WIDTH, type PathNode } from "@/utils/pathLayout";
 import { getTierForLevel, TIERS, type Tier } from "@/utils/tiers";
 import { PathNodeButton } from "@/components/botLobby/PathNodeButton";
+import { useMemo } from "react";
 
 interface TierSection {
   tier: Tier;
@@ -56,6 +57,7 @@ function getTierBridges(nodes: PathNode[]) {
 
   return bridges;
 }
+const GATE_LEVELS = new Set(TIERS.map((t) => t.range[0]));
 
 export function MapPathLayer({
   nodes,
@@ -68,8 +70,8 @@ export function MapPathLayer({
   onNodeClick,
   setNodeRef,
 }: MapPathLayerProps) {
-  const bridges = getTierBridges(nodes);
-  const GATE_LEVELS = new Set(TIERS.map((t) => t.range[0]));
+  const bridges = useMemo(() => getTierBridges(nodes), [nodes]);
+  console.log(GATE_LEVELS);
 
   return (
     <div
@@ -194,7 +196,7 @@ export function MapPathLayer({
                     GATE_LEVELS.has(node.level) && node.level > unlockedLevel
                   }
                   isPanelOpen={node.level === panelLevel}
-                  onClick={() => onNodeClick(node.level)}
+                  onClick={onNodeClick}
                   nodeRef={setNodeRef(node.level)}
                 />
               </div>

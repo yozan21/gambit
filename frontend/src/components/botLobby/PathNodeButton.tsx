@@ -1,4 +1,5 @@
 // components/botLobby/PathNodeButton.tsx
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Lock, Check, Zap } from "lucide-react";
 import type { PathNode } from "@/utils/pathLayout";
@@ -10,253 +11,373 @@ interface PathNodeButtonProps {
   isLocked: boolean;
   isCompleted: boolean;
   isFrontier: boolean;
-  isGate: boolean; // first level of tier — always clickable as trial
+  isGate: boolean;
   isPanelOpen: boolean;
-  onClick: () => void;
+  onClick: (level: number) => void;
   nodeRef: (el: HTMLButtonElement | null) => void;
 }
 
-const HEX_CLIP =
-  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)";
+type NodeShape = Tier["theme"]["nodeShape"];
 
-function getShapeStyle(shape: Tier["theme"]["nodeShape"]): React.CSSProperties {
+// All shapes fit within a size×size SVG viewBox.
+// pad keeps the stroke from being cropped at the SVG boundary.
+function ShapeElement({
+  shape,
+  size,
+  fill,
+  fillOpacity,
+  stroke,
+  strokeWidth,
+  strokeDasharray,
+}: {
+  shape: NodeShape;
+  size: number;
+  fill: string;
+  fillOpacity: number;
+  stroke: string;
+  strokeWidth: number;
+  strokeDasharray?: string;
+}) {
+  const half = size / 2;
+  const pad = strokeWidth + 1;
+  const r = half - pad;
+
+  const common = {
+    fill,
+    fillOpacity,
+    stroke,
+    strokeWidth,
+    strokeDasharray,
+    strokeLinejoin: "round" as const,
+  };
+
   switch (shape) {
     case "circle":
-      return { borderRadius: "50%" };
+      return <circle cx={half} cy={half} r={r} {...common} />;
+
+    case "squircle":
+      return (
+        <rect
+          x={pad}
+          y={pad}
+          width={size - pad * 2}
+          height={size - pad * 2}
+          rx={size * 0.22}
+          ry={size * 0.22}
+          {...common}
+        />
+      );
+
     case "diamond":
-      return { borderRadius: "12%", transform: "rotate(45deg)" };
-    case "hexagon":
-      return { clipPath: HEX_CLIP, borderRadius: 0 };
-    case "crown":
-      return {
-        borderRadius: "40% 40% 12% 12%",
-        boxShadow: `inset 0 2px 4px rgba(255,255,255,0.15)`,
-      };
+      return (
+        <polygon
+          points={`${half},${pad} ${size - pad},${half} ${half},${size - pad} ${pad},${half}`}
+          {...common}
+        />
+      );
+
+    case "pentagon": {
+      const points = Array.from({ length: 5 }, (_, i) => {
+        const a = (i * 72 - 90) * (Math.PI / 180);
+        return `${(half + r * Math.cos(a)).toFixed(2)},${(half + r * Math.sin(a)).toFixed(2)}`;
+      }).join(" ");
+      return <polygon points={points} {...common} />;
+    }
+
+    case "hexagon": {
+      const points = Array.from({ length: 6 }, (_, i) => {
+        const a = (i * 60 - 90) * (Math.PI / 180);
+        return `${(half + r * Math.cos(a)).toFixed(2)},${(half + r * Math.sin(a)).toFixed(2)}`;
+      }).join(" ");
+      return <polygon points={points} {...common} />;
+    }
+
+    case "octagon": {
+      const points = Array.from({ length: 8 }, (_, i) => {
+        const a = (i * 45 - 22.5) * (Math.PI / 180);
+        return `${(half + r * Math.cos(a)).toFixed(2)},${(half + r * Math.sin(a)).toFixed(2)}`;
+      }).join(" ");
+      return <polygon points={points} {...common} />;
+    }
+
+    case "crown": {
+      const d = [
+        `M ${pad} ${size - pad}`,
+        `L ${pad} ${size * 0.54}`,
+        `L ${size * 0.25} ${size * 0.66}`,
+        `L ${half} ${pad * 1.5}`,
+        `L ${size * 0.75} ${size * 0.66}`,
+        `L ${size - pad} ${size * 0.54}`,
+        `L ${size - pad} ${size - pad}`,
+        "Z",
+      ].join(" ");
+      return <path d={d} {...common} />;
+    }
+
+    case "shield": {
+      const d = [
+        `M ${half} ${pad}`,
+        `L ${size - pad} ${size * 0.22}`,
+        `L ${size - pad} ${size * 0.62}`,
+        `L ${half} ${size - pad}`,
+        `L ${pad} ${size * 0.62}`,
+        `L ${pad} ${size * 0.22}`,
+        "Z",
+      ].join(" ");
+      return <path d={d} {...common} />;
+    }
+
     default:
-      return { borderRadius: "50%" };
+      return <circle cx={half} cy={half} r={r} {...common} />;
   }
 }
 
-function getContentRotation(shape: Tier["theme"]["nodeShape"]): string {
-  return shape === "diamond" ? "rotate(-45deg)" : "rotate(0deg)";
-}
+export const PathNodeButton = memo(
+  function PathNodeButton({
+    tier,
+    node,
+    isLocked,
+    isCompleted,
+    isFrontier,
+    isGate,
+    isPanelOpen,
+    onClick,
+    nodeRef,
+  }: PathNodeButtonProps) {
+    const isLockedGate = isGate && !isCompleted;
+    const isAccessible = !isLocked || isGate;
 
-export function PathNodeButton({
-  tier,
-  node,
-  isLocked,
-  isCompleted,
-  isFrontier,
-  isGate,
-  isPanelOpen,
-  onClick,
-  nodeRef,
-}: PathNodeButtonProps) {
-  // Gate nodes are locked sequentially but always clickable as trial entry
-  const isAccessible = !isLocked || isGate;
-  const isLockedGate = isGate && isLocked && !isCompleted;
+    const nodeSize = isFrontier
+      ? tier.theme.nodeSize + 8
+      : isGate
+        ? tier.theme.nodeSize + 4
+        : tier.theme.nodeSize;
 
-  const baseSize = isFrontier
-    ? tier.theme.nodeSize + 8
-    : isGate
-      ? tier.theme.nodeSize + 4
-      : tier.theme.nodeSize;
+    const isBoss = node.level % 25 === 0;
+    const isMiniBoss = node.level % 10 === 0 && !isBoss;
 
-  const nodeSize = baseSize;
-  const innerSize = nodeSize - 4;
-  const isBoss = node.level % 25 === 0;
-  const isMiniBoss = node.level % 10 === 0;
-  const shapeStyle = getShapeStyle(tier.theme.nodeShape);
+    // Fill
+    const fillColor = isLocked && !isGate ? "#666" : tier.theme.primary;
+    const fillOpacity = isPanelOpen
+      ? 0.85
+      : isCompleted
+        ? 0.35
+        : isLockedGate
+          ? 0.1
+          : isFrontier
+            ? 0.28
+            : !isLocked
+              ? 0.18
+              : 0.05;
 
-  // --- derived visuals ---
-  const bodyBackground = (() => {
-    if (isPanelOpen)
-      return `linear-gradient(135deg, ${tier.theme.primary}, ${tier.theme.primary}90)`;
-    if (isCompleted)
-      return `linear-gradient(135deg, ${tier.theme.primary}40, ${tier.theme.primary}20)`;
-    if (isLockedGate)
-      return `linear-gradient(135deg, ${tier.theme.primary}18, ${tier.theme.primary}08)`;
-    if (isFrontier)
-      return `linear-gradient(135deg, ${tier.theme.primary}30, ${tier.theme.glow}50)`;
-    if (!isLocked)
-      return `linear-gradient(135deg, ${tier.theme.primary}20, ${tier.theme.glow}35)`;
-    return "var(--bg-surface)";
-  })();
+    // Stroke
+    const strokeColor =
+      isLocked && !isGate ? "var(--border-subtle)" : tier.theme.primary;
+    const strokeWidth = isFrontier ? 2.5 : isCompleted ? 2 : 1.5;
+    const strokeOpacity = isPanelOpen
+      ? 1
+      : isCompleted
+        ? 0.9
+        : isLockedGate
+          ? 0.55
+          : isFrontier
+            ? 1
+            : !isLocked
+              ? 0.65
+              : 0.25;
 
-  const bodyBorder = (() => {
-    if (isFrontier) return `2.5px solid ${tier.theme.primary}`;
-    if (isCompleted) return `2px solid ${tier.theme.primary}90`;
-    if (isLockedGate) return `1.5px dashed ${tier.theme.primary}60`;
-    if (!isLocked) return `1.5px solid ${tier.theme.primary}70`;
-    return "1px solid var(--border-subtle)";
-  })();
+    // SVG stroke supports dashes natively — gate locked gets a dashed border
+    const strokeDasharray = isLockedGate ? "4 3" : undefined;
 
-  const bodyBoxShadow = (() => {
-    if (isFrontier)
-      return `0 0 24px ${tier.theme.primary}50, 0 0 48px ${tier.theme.primary}25, inset 0 1px 2px rgba(255,255,255,0.1)`;
-    if (isCompleted)
-      return `0 0 12px ${tier.theme.primary}35, inset 0 1px 1px rgba(255,255,255,0.08)`;
-    if (isLockedGate) return `0 0 16px ${tier.theme.primary}30`;
-    return "0 2px 8px rgba(0,0,0,0.2)";
-  })();
+    // drop-shadow follows the SVG shape, not the bounding box
+    const dropShadow = isFrontier
+      ? `drop-shadow(0 0 8px ${tier.theme.primary}90)`
+      : isPanelOpen
+        ? `drop-shadow(0 0 6px ${tier.theme.primary}80)`
+        : isCompleted
+          ? `drop-shadow(0 0 5px ${tier.theme.primary}55)`
+          : "drop-shadow(0 2px 4px rgba(0,0,0,0.35))";
 
-  return (
-    <motion.button
-      ref={nodeRef}
-      initial={{ opacity: 0, scale: 0.3 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: Math.min(node.level * 0.002, 0.4), type: "spring" }}
-      onClick={onClick}
-      disabled={!isAccessible}
-      className="group relative flex items-center justify-center"
-      style={{ width: nodeSize, height: nodeSize }}
-      whileHover={isAccessible ? { scale: 1.15, zIndex: 10 } : {}}
-      whileTap={isAccessible ? { scale: 0.9 } : {}}
-    >
-      {/* Frontier pulse ring */}
-      {isFrontier && (
-        <motion.div
-          className="absolute inset-0"
-          animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0.15, 0.5] }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-          style={{
-            ...shapeStyle,
-            background: `radial-gradient(circle, ${tier.theme.primary}50, transparent 70%)`,
-          }}
-        />
-      )}
-
-      {/* Gate locked — rotating dashed beacon ring */}
-      {isLockedGate && (
-        <motion.div
-          className="absolute inset-0"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-          style={{
-            ...shapeStyle,
-            background: "transparent",
-            outline: `2px dashed ${tier.theme.primary}45`,
-            outlineOffset: 3,
-          }}
-        />
-      )}
-
-      {/* Completed — static glow halo, no animation to keep it calm */}
-      {isCompleted && !isFrontier && (
-        <div
-          className="absolute inset-0"
-          style={{
-            ...shapeStyle,
-            background: `radial-gradient(circle, ${tier.theme.primary}20, transparent 70%)`,
-            transform: "scale(1.3)",
-          }}
-        />
-      )}
-
-      {/* Main node body */}
-      <div
-        className="relative flex items-center justify-center shadow-lg transition-all duration-200"
-        style={{
-          width: innerSize,
-          height: innerSize,
-          ...shapeStyle,
-          background: bodyBackground,
-          border: bodyBorder,
-          boxShadow: bodyBoxShadow,
-          opacity: isLocked && !isGate ? 0.4 : 1,
+    return (
+      <motion.button
+        ref={nodeRef}
+        initial={{ opacity: 0, scale: 0.3 }}
+        animate={{ opacity: isLocked && !isGate ? 0.38 : 1, scale: 1 }}
+        transition={{
+          delay: Math.min(node.level * 0.002, 0.4),
+          type: "spring",
         }}
+        onClick={() => onClick(node.level)}
+        disabled={!isAccessible}
+        className="group relative flex items-center justify-center"
+        style={{ width: nodeSize, height: nodeSize }}
+        whileHover={isAccessible ? { scale: 1.15, zIndex: 10 } : {}}
+        whileTap={isAccessible ? { scale: 0.9 } : {}}
       >
-        <div
-          className="flex items-center justify-center"
-          style={{ transform: getContentRotation(tier.theme.nodeShape) }}
-        >
-          {/* Locked (non-gate) */}
-          {isLocked && !isGate && <Lock className="h-3.5 w-3.5 opacity-40" />}
+        {/* Frontier pulse ring — SVG so it follows the exact shape */}
+        {isFrontier && (
+          <motion.svg
+            className="pointer-events-none absolute inset-0"
+            width={nodeSize}
+            height={nodeSize}
+            style={{ overflow: "visible" }}
+            animate={{ scale: [1, 1.4, 1], opacity: [0.45, 0.08, 0.45] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <ShapeElement
+              shape={tier.theme.nodeShape}
+              size={nodeSize}
+              fill={tier.theme.primary}
+              fillOpacity={0.35}
+              stroke="none"
+              strokeWidth={0}
+            />
+          </motion.svg>
+        )}
 
-          {/* Completed — permanent check, overrides everything else */}
+        {/* Completed halo — static, calm */}
+        {isCompleted && !isFrontier && (
+          <svg
+            className="pointer-events-none absolute inset-0"
+            width={nodeSize}
+            height={nodeSize}
+            style={{ overflow: "visible", transform: "scale(1.28)" }}
+          >
+            <ShapeElement
+              shape={tier.theme.nodeShape}
+              size={nodeSize}
+              fill={tier.theme.primary}
+              fillOpacity={0.1}
+              stroke="none"
+              strokeWidth={0}
+            />
+          </svg>
+        )}
+
+        {/* Main shape — SVG stroke is never clipped, works on every shape */}
+        <svg
+          className="pointer-events-none absolute inset-0"
+          width={nodeSize}
+          height={nodeSize}
+          style={{ filter: dropShadow, overflow: "visible" }}
+        >
+          <ShapeElement
+            shape={tier.theme.nodeShape}
+            size={nodeSize}
+            fill={fillColor}
+            fillOpacity={fillOpacity}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+            strokeDasharray={strokeDasharray}
+          />
+          {/* Stroke opacity as a separate attribute isn't on ShapeElement,
+              so wrap in a group */}
+          <g opacity={strokeOpacity} />
+        </svg>
+
+        {/* Stroke opacity layer — re-render shape transparent fill, only stroke counts */}
+        <svg
+          className="pointer-events-none absolute inset-0"
+          width={nodeSize}
+          height={nodeSize}
+          style={{ overflow: "visible", opacity: strokeOpacity }}
+        >
+          <ShapeElement
+            shape={tier.theme.nodeShape}
+            size={nodeSize}
+            fill="transparent"
+            fillOpacity={0}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+            strokeDasharray={strokeDasharray}
+          />
+        </svg>
+
+        {/* Content — HTML centered on top of SVG layers */}
+        <div className="pointer-events-none relative z-10 flex items-center justify-center">
+          {isLocked && !isGate && (
+            <Lock
+              className="h-3.5 w-3.5"
+              style={{ color: "var(--text-muted)", opacity: 0.5 }}
+            />
+          )}
           {isCompleted && (
             <Check
-              className="h-4 w-4 drop-shadow-sm"
+              className="h-4 w-4"
               style={{ color: tier.theme.primary }}
               strokeWidth={2.5}
             />
           )}
-
-          {/* Gate locked — always show the Zap "try me" icon */}
           {isLockedGate && (
-            <Zap
-              className="h-4 w-4"
-              style={{ color: tier.theme.primary }}
-              strokeWidth={2}
-            />
+            <Zap className="h-4 w-4" style={{ color: tier.theme.primary }} />
           )}
-
-          {/* Normal unlocked states */}
           {!isLocked &&
             !isCompleted &&
             (isBoss ? (
-              <span
-                className="text-base"
-                style={{ filter: `drop-shadow(0 0 4px ${tier.theme.primary})` }}
-              >
-                {tier.icon}
-              </span>
+              <span className="text-base leading-none">{tier.icon}</span>
             ) : isMiniBoss ? (
-              <span className="text-xs">{tier.icon}</span>
-            ) : isFrontier ? (
-              <span
-                className="text-xs font-bold"
-                style={{ color: tier.theme.primary }}
-              >
-                {node.level}
-              </span>
+              <span className="text-xs leading-none">{tier.icon}</span>
             ) : (
               <span
-                className="text-xs font-bold"
-                style={{ color: "var(--text-primary)", opacity: 0.8 }}
+                className="text-xs leading-none font-bold"
+                style={{
+                  color:
+                    isFrontier || isPanelOpen
+                      ? tier.theme.primary
+                      : "var(--text-primary)",
+                }}
               >
                 {node.level}
               </span>
             ))}
         </div>
-      </div>
 
-      {/* Tooltip */}
-      {isAccessible && (
-        <div
-          className="pointer-events-none absolute -top-9 left-1/2 z-20 -translate-x-1/2 rounded-md px-2.5 py-1 text-[10px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-          style={{
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
-            color: "var(--text-primary)",
-            boxShadow: "var(--shadow-lg)",
-          }}
-        >
-          {isLockedGate ? (
-            <>
-              <span style={{ color: tier.theme.primary }}>
-                ⚡ Try {tier.name}
-              </span>
-              <span className="ml-1 opacity-60">— Gate</span>
-            </>
-          ) : (
-            <>
-              Level {node.level}
-              {isBoss && (
-                <span className="ml-1" style={{ color: tier.theme.primary }}>
-                  — Boss
+        {/* Tooltip */}
+        {isAccessible && (
+          <div
+            className="pointer-events-none absolute -top-9 left-1/2 z-20 -translate-x-1/2 rounded-md px-2.5 py-1 text-[10px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            style={{
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-primary)",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            {isLockedGate ? (
+              <>
+                <span style={{ color: tier.theme.primary }}>
+                  ⚡ Try {tier.name}
                 </span>
-              )}
-              {isMiniBoss && !isBoss && (
-                <span className="ml-1" style={{ color: tier.theme.primary }}>
-                  — Elite
-                </span>
-              )}
-              {isCompleted && <span className="ml-1 opacity-60">✓</span>}
-            </>
-          )}
-        </div>
-      )}
-    </motion.button>
-  );
-}
+                <span className="ml-1 opacity-60">— Gate</span>
+              </>
+            ) : (
+              <>
+                Level {node.level}
+                {isBoss && (
+                  <span className="ml-1" style={{ color: tier.theme.primary }}>
+                    — Boss
+                  </span>
+                )}
+                {isMiniBoss && (
+                  <span className="ml-1" style={{ color: tier.theme.primary }}>
+                    — Elite
+                  </span>
+                )}
+                {isCompleted && <span className="ml-1 opacity-60">✓</span>}
+              </>
+            )}
+          </div>
+        )}
+      </motion.button>
+    );
+  },
+  (prev, next) =>
+    prev.isLocked === next.isLocked &&
+    prev.isCompleted === next.isCompleted &&
+    prev.isFrontier === next.isFrontier &&
+    prev.isGate === next.isGate &&
+    prev.isPanelOpen === next.isPanelOpen &&
+    prev.node.level === next.node.level &&
+    prev.node.x === next.node.x &&
+    prev.node.y === next.node.y,
+);

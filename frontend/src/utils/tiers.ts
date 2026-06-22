@@ -11,7 +11,15 @@ export interface Tier {
     glow: string;
     particleColor: string;
     nodeSize: number;
-    nodeShape: "circle" | "diamond" | "hexagon" | "crown";
+    nodeShape:
+      | "circle"
+      | "squircle"
+      | "diamond"
+      | "pentagon"
+      | "hexagon"
+      | "octagon"
+      | "crown"
+      | "shield";
     nodeBorder: string;
     bgPattern?: string;
   };
@@ -44,7 +52,7 @@ export const TIERS: Tier[] = [
       glow: "rgba(96, 165, 250, 0.15)",
       particleColor: "#60a5fa",
       nodeSize: 38,
-      nodeShape: "circle",
+      nodeShape: "squircle",
       nodeBorder: "1px solid rgba(96, 165, 250, 0.4)",
     },
   },
@@ -74,7 +82,7 @@ export const TIERS: Tier[] = [
       glow: "rgba(249, 115, 22, 0.15)",
       particleColor: "#f97316",
       nodeSize: 42,
-      nodeShape: "diamond",
+      nodeShape: "pentagon",
       nodeBorder: "1.5px solid rgba(249, 115, 22, 0.5)",
     },
   },
@@ -104,7 +112,7 @@ export const TIERS: Tier[] = [
       glow: "rgba(168, 85, 247, 0.15)",
       particleColor: "#a855f7",
       nodeSize: 46,
-      nodeShape: "hexagon",
+      nodeShape: "octagon",
       nodeBorder: "2px solid rgba(168, 85, 247, 0.5)",
     },
   },
@@ -134,7 +142,7 @@ export const TIERS: Tier[] = [
       glow: "rgba(201, 168, 76, 0.3)",
       particleColor: "#e2c46a",
       nodeSize: 52,
-      nodeShape: "crown",
+      nodeShape: "shield",
       nodeBorder: "2px solid rgba(201, 168, 76, 0.6)",
     },
   },
