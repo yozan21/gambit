@@ -121,6 +121,44 @@ export default class BotGame {
     };
   }
 
+  // How often to pick a completely random legal move instead of asking
+  // Stockfish. Scales from ~90% at level 1 to 0% at level 35+.
+  // Above level 35 Stockfish handles everything via skill/depth alone.
+  private randomMoveChance(): number {
+    if (this.level >= 35) return 0;
+    return 0.9 * (1 - (this.level - 1) / 34);
+  }
+
+  // Thinking delay in ms
+  private thinkingDelay(): number {
+    const roll = Math.random();
+
+    // At low levels, humans spend more time on every move.
+    // At high levels, the artificial delay is short anyway since
+    // Stockfish's own computation fills the gap.
+    const levelFactor = Math.max(0, 1 - (this.level - 1) / 50);
+
+    let base: number;
+
+    if (roll < 0.15) {
+      // Quick instinct move — "I saw this immediately"
+      base = 300 + Math.random() * 400;
+    } else if (roll < 0.7) {
+      // Normal thinking
+      base = 800 + Math.random() * 1200;
+    } else if (roll < 0.9) {
+      // Longer ponder — "hmm let me think about this"
+      base = 2000 + Math.random() * 1500;
+    } else {
+      // Rare deep think — "this position is tricky"
+      base = 3500 + Math.random() * 2000;
+    }
+
+    // Scale down the delay as level increases — high levels feel snappier
+    // because Stockfish's own depth computation fills the remaining time.
+    return Math.round(base * levelFactor + 300);
+  }
+
   async getBotMove(): Promise<{
     ok: boolean;
     fen?: string;
@@ -139,15 +177,37 @@ export default class BotGame {
     this.isBotThinking = true;
 
     try {
-      const bestMove = await stockfishService.getBestMove(
-        this.chess.fen(),
-        this.level,
-      );
+      // Thinking delay — runs before move selection so the "thinking" UI
+      // is visible even when we end up picking a random move instantly.
+      await new Promise((res) => setTimeout(res, this.thinkingDelay()));
 
-      // Parse the move (e.g. "e2e4" or "e7e8q" for promotion)
-      const from = bestMove.slice(0, 2);
-      const to = bestMove.slice(2, 4);
-      const promotion = bestMove[4] as "q" | "r" | "n" | "b" | undefined;
+      let bestMoveStr: string;
+
+      if (Math.random() < this.randomMoveChance()) {
+        // Pick a random legal move — produces genuine beginner mistakes:
+        // hanging pieces, missing tactics, random pawn pushes, etc.
+        const legalMoves = this.chess.moves({ verbose: true });
+        if (legalMoves.length === 0) {
+          return { ok: false, message: "NO_LEGAL_MOVES" };
+        }
+        const picked =
+          legalMoves[Math.floor(Math.random() * legalMoves.length)]!;
+
+        bestMoveStr = picked.promotion
+          ? `${picked.from}${picked.to}${picked.promotion}`
+          : `${picked.from}${picked.to}`;
+      } else {
+        // Stockfish — skill and depth already scale with level via
+        // levelToSkill/levelToDepth in stockfishService.getBestMove.
+        bestMoveStr = await stockfishService.getBestMove(
+          this.chess.fen(),
+          this.level,
+        );
+      }
+
+      const from = bestMoveStr.slice(0, 2);
+      const to = bestMoveStr.slice(2, 4);
+      const promotion = bestMoveStr[4] as "q" | "r" | "n" | "b" | undefined;
 
       let move: Move;
       try {
@@ -181,7 +241,6 @@ export default class BotGame {
       this.isBotThinking = false;
     }
   }
-
   async getHint(): Promise<{
     ok: boolean;
     from?: string;
@@ -211,12 +270,9 @@ export default class BotGame {
     if (this.hintsUsed >= this.hintsAllowed) {
       return { ok: false, reason: "ad_required" };
     }
-    this.isBotThinking = true;
     try {
-      const bestMove = await stockfishService.getBestMove(
-        this.chess.fen(),
-        this.level,
-      );
+      this.isBotThinking = true;
+      const bestMove = await stockfishService.getHintMove(this.chess.fen());
 
       this.hintsUsed++;
       this.lastHintFen = currentFen;

@@ -12,6 +12,7 @@ interface GameOverModalProps {
   onHome: () => void;
   onPlayAgain: () => void;
   onRematch?: () => void;
+  playAgainLabel?: string; // NEW — defaults to "Play Again"
 }
 
 export default function GameOverModal({
@@ -23,6 +24,7 @@ export default function GameOverModal({
   onHome,
   onPlayAgain,
   onRematch,
+  playAgainLabel = "Play Again", // NEW
 }: GameOverModalProps) {
   const isWin = winner === myColor;
   const isDraw = winner === null && result !== "resignation";
@@ -85,7 +87,6 @@ export default function GameOverModal({
             >
               <X className="h-5 w-5 text-muted-foreground" />
             </button>
-
             {/* Icon */}
             <motion.div
               initial={{ scale: 0 }}
@@ -104,7 +105,6 @@ export default function GameOverModal({
                 <span className="text-3xl">✕</span>
               )}
             </motion.div>
-
             {/* Title */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -119,7 +119,6 @@ export default function GameOverModal({
               </h2>
               <p className="text-sm text-muted-foreground">{getSubtitle()}</p>
             </motion.div>
-
             {/* Buttons */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -129,7 +128,7 @@ export default function GameOverModal({
             >
               <Button
                 onClick={onPlayAgain}
-                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold transition-all"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold transition-all"
                 style={{
                   background:
                     "linear-gradient(135deg, #e2c46a 0%, #c9a84c 100%)",
@@ -138,39 +137,42 @@ export default function GameOverModal({
                 }}
               >
                 <RotateCcw className="h-5 w-5" />
-                Play Again
+                {playAgainLabel}
               </Button>
 
-              {onRematch && (
-                <button
-                  onClick={onRematch}
-                  disabled
-                  className="flex cursor-not-allowed items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold opacity-50 transition-all"
+              <div
+                className={`grid gap-3 ${onRematch ? "grid-cols-2" : "grid-cols-1"}`}
+              >
+                {onRematch && (
+                  <button
+                    onClick={onRematch}
+                    disabled
+                    className="flex cursor-not-allowed items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold opacity-50 transition-all"
+                    style={{
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border-gold)",
+                      color: "var(--gold)",
+                    }}
+                  >
+                    <Award className="h-5 w-5" />
+                    Rematch
+                  </button>
+                )}
+
+                <Button
+                  onClick={onHome}
+                  className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold transition-all"
                   style={{
                     background: "var(--bg-surface)",
-                    border: "1px solid var(--border-gold)",
-                    color: "var(--gold)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-secondary)",
                   }}
                 >
-                  <Award className="h-5 w-5" />
-                  Rematch (Coming Soon)
-                </button>
-              )}
-
-              <Button
-                onClick={onHome}
-                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold transition-all"
-                style={{
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                <Home className="h-5 w-5" />
-                Home
-              </Button>
-            </motion.div>
-
+                  <Home className="h-5 w-5" />
+                  Home
+                </Button>
+              </div>
+            </motion.div>{" "}
             <p className="text-xs text-muted-foreground">
               Click outside or X to close
             </p>

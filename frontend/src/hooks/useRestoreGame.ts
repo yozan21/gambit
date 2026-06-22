@@ -21,6 +21,7 @@ export function useRestoreGame({
   const navigate = useNavigate();
   useEffect(() => {
     if (!shouldRestore || !gameId || !mode || !user) return;
+    if (mode !== "ranked" && mode !== "friend") return;
 
     // Check if this is a reload or fresh navigation
     const isReload = sessionStorage.getItem("gameId") === gameId;

@@ -1,6 +1,6 @@
 // components/botLobby/MapPathLayer.tsx
 import { SVG_WIDTH, type PathNode } from "@/utils/pathLayout";
-import { getTierForLevel, type Tier } from "@/utils/tiers";
+import { getTierForLevel, TIERS, type Tier } from "@/utils/tiers";
 import { PathNodeButton } from "@/components/botLobby/PathNodeButton";
 
 interface TierSection {
@@ -24,6 +24,39 @@ interface MapPathLayerProps {
   setNodeRef: (level: number) => (el: HTMLButtonElement | null) => void;
 }
 
+// One cubic bezier segment: M from → C with midY control points → to
+function buildSegmentPath(from: PathNode, to: PathNode): string {
+  const midY = (from.y + to.y) / 2;
+  return `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
+}
+
+// Pairs of [lastNodeOfTierA, firstNodeOfTierB] for every tier boundary
+function getTierBridges(nodes: PathNode[]) {
+  const bridges: Array<{
+    from: PathNode;
+    to: PathNode;
+    fromColor: string;
+    toColor: string;
+    id: string;
+  }> = [];
+
+  for (let i = 1; i < nodes.length; i++) {
+    const prev = nodes[i - 1];
+    const curr = nodes[i];
+    if (prev.tierIndex !== curr.tierIndex) {
+      bridges.push({
+        from: prev,
+        to: curr,
+        fromColor: TIERS[prev.tierIndex].theme.primary,
+        toColor: TIERS[curr.tierIndex].theme.primary,
+        id: `bridge-${prev.tierIndex}-${curr.tierIndex}`,
+      });
+    }
+  }
+
+  return bridges;
+}
+
 export function MapPathLayer({
   nodes,
   tierSections,
@@ -35,6 +68,8 @@ export function MapPathLayer({
   onNodeClick,
   setNodeRef,
 }: MapPathLayerProps) {
+  const bridges = getTierBridges(nodes);
+
   return (
     <div
       className="relative mx-auto"
@@ -45,6 +80,24 @@ export function MapPathLayer({
         width={SVG_WIDTH}
         height={fullHeight}
       >
+        <defs>
+          {bridges.map(({ id, from, to, fromColor, toColor }) => (
+            <linearGradient
+              key={id}
+              id={id}
+              gradientUnits="userSpaceOnUse"
+              x1={from.x}
+              y1={from.y}
+              x2={to.x}
+              y2={to.y}
+            >
+              <stop offset="0%" stopColor={fromColor} />
+              <stop offset="100%" stopColor={toColor} />
+            </linearGradient>
+          ))}
+        </defs>
+
+        {/* Base path — full route in neutral color */}
         <path
           d={svgPath}
           fill="none"
@@ -67,26 +120,31 @@ export function MapPathLayer({
           strokeLinecap="round"
           strokeDasharray="4 8"
         />
+
+        {/* Progress path */}
         {progressPath && (
-          <>
-            <path
-              d={progressPath}
-              fill="none"
-              stroke="var(--gold)"
-              strokeWidth={10}
-              strokeLinecap="round"
-              opacity={0.35}
-              filter="blur(6px)"
-            />
-            <path
-              d={progressPath}
-              fill="none"
-              stroke="var(--gold-muted)"
-              strokeWidth={3}
-              strokeLinecap="round"
-            />
-          </>
+          <path
+            d={progressPath}
+            fill="none"
+            stroke="var(--gold-muted)"
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
         )}
+
+        {/* Bridge segments — overpaint base path with tier-to-tier gradient */}
+        {bridges.map(({ id, from, to }) => (
+          <path
+            key={id}
+            d={buildSegmentPath(from, to)}
+            fill="none"
+            stroke={`url(#${id})`}
+            strokeWidth={4}
+            strokeLinecap="round"
+          />
+        ))}
+
+        {/* Milestone dots every 10 levels */}
         {nodes
           .filter((_, i) => i % 10 === 9)
           .map((node) => (

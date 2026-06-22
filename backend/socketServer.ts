@@ -439,7 +439,7 @@ export default function socketServer(io: Server) {
         return socket.emit("inGame", {
           gameId: activeGame.id,
           mode: activeGame.mode,
-          message: "You are already in a running game.",
+          message: "You are already in a running game. Joining it...",
         });
       }
 
@@ -704,7 +704,7 @@ export default function socketServer(io: Server) {
 
       const res = game.undoMove();
       if (!res.ok) {
-        return socket.emit("error", {
+        return socket.emit("moveError", {
           message: res.message ?? "Nothing to undo",
         });
       }

@@ -33,7 +33,7 @@ const GameLayout = memo(function () {
 
   useEffect(() => {
     if (gameStatus === "ended" && result) {
-      setTimeout(() => setGameOverModalOpen(true), 1000);
+      setTimeout(() => setGameOverModalOpen(true), 500);
     }
   }, [gameStatus, result]);
 

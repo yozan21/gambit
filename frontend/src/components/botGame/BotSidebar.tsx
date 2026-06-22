@@ -17,8 +17,10 @@ interface BotSidebarProps {
   isStalled: boolean;
   hintsRemaining: number;
   isBotThinking: boolean;
+  playAgainLabel: string;
   onHint: () => void;
   onUndo: () => void;
+  onRestart: () => void;
   onHome: () => void;
   onPlayAgain: () => void;
 }
@@ -35,8 +37,10 @@ const BotSidebar = React.memo(function ({
   isStalled,
   hintsRemaining,
   isBotThinking,
+  playAgainLabel,
   onHint,
   onUndo,
+  onRestart,
   onHome,
   onPlayAgain,
 }: BotSidebarProps) {
@@ -82,8 +86,10 @@ const BotSidebar = React.memo(function ({
           isStalled={isStalled}
           hintsRemaining={hintsRemaining}
           isBotThinking={isBotThinking}
+          playAgainLabel={playAgainLabel}
           onHint={onHint}
           onUndo={onUndo}
+          onRestart={onRestart}
           onHome={onHome}
           onPlayAgain={onPlayAgain}
         />

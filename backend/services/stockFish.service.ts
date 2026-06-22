@@ -36,10 +36,20 @@ class StockfishService {
     }
   }
 
-  async getHintMove(fen: string, level: number): Promise<string> {
-    // Hints use slightly deeper analysis for better suggestion
-    const hintLevel = Math.min(100, level + 10);
-    return this.getBestMove(fen, hintLevel);
+  async getHintMove(fen: string): Promise<string> {
+    // Always analyze at a strong fixed level — hints should be genuinely good
+    // suggestions regardless of what level the player is on.
+    const engine = await this.pool.acquire();
+    try {
+      await engine.setOptions({ "Skill Level": 20 });
+      const result = await engine.analyze(fen, 12);
+      if (!result.bestmove || result.bestmove === "(none)") {
+        throw new Error("No move available");
+      }
+      return result.bestmove;
+    } finally {
+      this.pool.release(engine);
+    }
   }
 
   // Map 1-100 to Stockfish Skill Level 0-20

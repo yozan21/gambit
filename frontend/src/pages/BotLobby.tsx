@@ -27,6 +27,8 @@ import { GameStartPanel } from "@/components/botLobby/GameStartPanel";
 import { ResumePrompt } from "@/components/botLobby/ResumePrompt";
 import { TierTimelineRail } from "@/components/botLobby/TierTimelineRail";
 import { MapPathLayer } from "@/components/botLobby/MapPathLayout";
+import { useNodeInView } from "@/hooks/useNodeInView";
+import ScrollToCurrentButton from "@/components/botLobby/ScrollToCurrentButton";
 
 export default function BotLobby() {
   usePageTitle("Play vs Bot");
@@ -45,13 +47,17 @@ export default function BotLobby() {
   const [isInitialScrollDone, setIsInitialScrollDone] = useState(false);
   const mapScrollRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const currentNodeRef = useRef<HTMLButtonElement | null>(null);
+  const currentNodeState = useNodeInView(currentNodeRef, mapScrollRef);
 
   const setNodeRef = useCallback(
     (level: number) => (el: HTMLButtonElement | null) => {
       if (el) nodeRefs.current.set(level, el);
       else nodeRefs.current.delete(level);
+      // keep a direct ref to the current (frontier) node for the go-to button
+      if (level === unlockedLevel) currentNodeRef.current = el;
     },
-    [],
+    [unlockedLevel],
   );
 
   const { nodes, totalHeight } = useMemo(() => computePath(TIERS), []);
@@ -97,6 +103,18 @@ export default function BotLobby() {
         : "",
     [nodes, unlockedNodeIndex],
   );
+  const scrollToCurrentNode = useCallback(() => {
+    const target = nodeRefs.current.get(unlockedLevel);
+    if (!target || !mapScrollRef.current) return;
+    const containerRect = mapScrollRef.current.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const offset =
+      targetRect.top -
+      containerRect.top +
+      mapScrollRef.current.scrollTop -
+      containerRect.height / 2;
+    mapScrollRef.current.scrollTo({ top: offset, behavior: "smooth" });
+  }, [unlockedLevel]);
 
   // Drives the sticky titles' `top` to the container's true vertical center
   // in real pixels — kept current via ResizeObserver on window resize.
@@ -283,6 +301,11 @@ export default function BotLobby() {
           />
         </div>
       </div>
+      {/* Go-to-current button — outside the blur wrapper so it stays sharp */}
+      <ScrollToCurrentButton
+        currentNodeState={currentNodeState}
+        scrollToCurrentNode={scrollToCurrentNode}
+      />
 
       <GameStartPanel
         level={panelLevel}

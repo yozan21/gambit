@@ -89,17 +89,23 @@ async function buildAppRaw(app: FastifyInstance) {
       id: { type: "string" },
       username: { type: "string" },
       fullName: { type: "string" },
+      avatar: { type: "string" },
       email: { type: "string" },
       elo: { type: "number" },
       stats: {
         type: "object",
         properties: {
+          botGamesPlayed: { type: "number" },
+          botWins: { type: "number" },
+          botLosses: { type: "number" },
           gamesPlayed: { type: "number" },
           wins: { type: "number" },
           losses: { type: "number" },
           draws: { type: "number" },
         },
       },
+      unlockedBotLevel: { type: "number" },
+
       games: { type: "array" },
       createdAt: { type: "string", format: "date-time" },
       updatedAt: { type: "string", format: "date-time" },

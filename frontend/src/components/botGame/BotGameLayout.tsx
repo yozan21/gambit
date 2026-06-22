@@ -35,11 +35,9 @@ const BotGameLayout = memo(function () {
   const [gameOverModalOpen, setGameOverModalOpen] = useState(false);
 
   useEffect(() => {
-    if (gameStatus === "ended" && result) {
-      const t = setTimeout(() => setGameOverModalOpen(true), 1000);
-      return () => clearTimeout(t);
-    }
-    setGameOverModalOpen(false);
+    if (gameStatus !== "ended" || !result) return;
+    const t = setTimeout(() => setGameOverModalOpen(true), 500);
+    return () => clearTimeout(t);
   }, [gameStatus, result]);
 
   const handlePromotionSelect = (piece: PromotionPiece) => {
@@ -85,20 +83,33 @@ const BotGameLayout = memo(function () {
   const handleUndo = () => {
     if (!gameId) return;
     socket.emit("undoMove", { gameId });
+    setGameOverModalOpen(false);
   };
 
+  // Toolbar Restart — only reachable during clean active play (gated in
+  // BotGameControls), so the game is always guaranteed to still exist
+  // server-side here.
+  const handleRestart = () => {
+    setGameOverModalOpen(false);
+    if (!gameId) return;
+    socket.emit("restartBotGame", { gameId });
+  };
+
+  // Safe at any time — does NOT tell the server to abandon anything. The
+  // game just sits as "in_progress"; coming back to this same URL re-runs
+  // continueBotGame via useRestoreBotGame and picks it back up.
   const handleHome = () => {
+    setGameOverModalOpen(false);
     dispatch(resetBotGame());
     navigate("/play/bot");
   };
 
-  // When the BOT's move ended the game, the server kept it alive for
-  // undo — restartBotGame targets that same game and works fine. When
-  // the PLAYER's own move ended it (a real win/draw), the server already
-  // removed it (botGameManager.removeGame right after botGameOver) — so
-  // there's nothing left to restart against. Route to the lobby instead,
-  // where a newly unlocked level (if any) is ready to pick.
+  // Bot ended it (isStalled) -> game's still alive -> restart in place.
+  // Player's own move ended it -> server already deleted that game ->
+  // nothing to restart against, route to the lobby instead (a freshly
+  // unlocked level is waiting there if you won).
   const handlePlayAgain = () => {
+    setGameOverModalOpen(false);
     if (isStalled && gameId) {
       socket.emit("restartBotGame", { gameId });
       return;
@@ -106,6 +117,12 @@ const BotGameLayout = memo(function () {
     dispatch(resetBotGame());
     navigate("/play/bot");
   };
+
+  const playAgainLabel = isStalled
+    ? "Try Again"
+    : winner === me?.color
+      ? "Next Level"
+      : "Play Again";
 
   const isViewingHistory = viewingMoveIndex !== null;
   const boardDisabled = gameStatus === "ended" || isViewingHistory;
@@ -156,8 +173,10 @@ const BotGameLayout = memo(function () {
                 isStalled={isStalled}
                 hintsRemaining={hintsRemaining}
                 isBotThinking={isBotThinking}
+                playAgainLabel={playAgainLabel}
                 onHint={handleHint}
                 onUndo={handleUndo}
+                onRestart={handleRestart}
                 onHome={handleHome}
                 onPlayAgain={handlePlayAgain}
               />
@@ -176,6 +195,7 @@ const BotGameLayout = memo(function () {
         result={result || "draw"}
         winner={winner}
         myColor={me?.color || "w"}
+        playAgainLabel={playAgainLabel}
         onClose={() => setGameOverModalOpen(false)}
         onHome={handleHome}
         onPlayAgain={handlePlayAgain}
