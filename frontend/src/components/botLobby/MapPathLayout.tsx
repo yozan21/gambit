@@ -69,6 +69,7 @@ export function MapPathLayer({
   setNodeRef,
 }: MapPathLayerProps) {
   const bridges = getTierBridges(nodes);
+  const GATE_LEVELS = new Set(TIERS.map((t) => t.range[0]));
 
   return (
     <div
@@ -184,9 +185,14 @@ export function MapPathLayer({
                 <PathNodeButton
                   tier={tier}
                   node={node}
-                  isLocked={node.level > unlockedLevel}
-                  isCompleted={node.level < unlockedLevel}
+                  isLocked={
+                    node.level > unlockedLevel && !GATE_LEVELS.has(node.level)
+                  }
+                  isCompleted={node.level < unlockedLevel} // keep as-is for now; swap to completedLevels.has() once backend ships
                   isFrontier={node.level === unlockedLevel}
+                  isGate={
+                    GATE_LEVELS.has(node.level) && node.level > unlockedLevel
+                  }
                   isPanelOpen={node.level === panelLevel}
                   onClick={() => onNodeClick(node.level)}
                   nodeRef={setNodeRef(node.level)}
