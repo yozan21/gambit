@@ -1,54 +1,52 @@
 import { StockfishPool } from "@se-oss/stockfish";
 
 class StockfishService {
-  private pool: StockfishPool;
+  private pool: StockfishPool | null = null;
+  private idleTimer: NodeJS.Timeout | null = null;
+  private readonly IDLE_TIMEOUT = 5 * 60 * 1000; // 5 min
 
-  constructor() {
-    this.pool = new StockfishPool(4);
-    this.pool
-      .initialize()
-      .then(() => {
-        console.log("Stockfish pool ready");
-      })
-      .catch((err) => {
-        console.error("Stockfish pool init failed:", err);
-      });
+  private async getPool(): Promise<StockfishPool> {
+    if (!this.pool) {
+      this.pool = new StockfishPool(2);
+      await this.pool.initialize();
+    }
+    this.resetIdleTimer();
+    return this.pool;
+  }
+
+  private resetIdleTimer() {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(async () => {
+      await this.pool?.terminate();
+      this.pool = null;
+    }, this.IDLE_TIMEOUT);
   }
 
   async getBestMove(fen: string, level: number): Promise<string> {
-    const engine = await this.pool.acquire();
-
+    const pool = await this.getPool();
+    const engine = await pool.acquire();
     try {
-      const skillLevel = this.levelToSkill(level);
-      const depth = this.levelToDepth(level);
-
-      await engine.setOptions({ "Skill Level": skillLevel });
-
-      const result = await engine.analyze(fen, depth);
-
-      if (!result.bestmove || result.bestmove === "(none)") {
+      await engine.setOptions({ "Skill Level": this.levelToSkill(level) });
+      const result = await engine.analyze(fen, this.levelToDepth(level));
+      if (!result.bestmove || result.bestmove === "(none)")
         throw new Error("No move available");
-      }
-
       return result.bestmove;
     } finally {
-      this.pool.release(engine);
+      pool.release(engine);
     }
   }
 
   async getHintMove(fen: string): Promise<string> {
-    // Always analyze at a strong fixed level — hints should be genuinely good
-    // suggestions regardless of what level the player is on.
-    const engine = await this.pool.acquire();
+    const pool = await this.getPool();
+    const engine = await pool.acquire();
     try {
       await engine.setOptions({ "Skill Level": 20 });
       const result = await engine.analyze(fen, 12);
-      if (!result.bestmove || result.bestmove === "(none)") {
+      if (!result.bestmove || result.bestmove === "(none)")
         throw new Error("No move available");
-      }
       return result.bestmove;
     } finally {
-      this.pool.release(engine);
+      pool.release(engine);
     }
   }
 
