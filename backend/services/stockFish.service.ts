@@ -7,7 +7,7 @@ class StockfishService {
 
   private async getPool(): Promise<StockfishPool> {
     if (!this.pool) {
-      this.pool = new StockfishPool(2);
+      this.pool = new StockfishPool(1);
       await this.pool.initialize();
     }
     this.resetIdleTimer();
@@ -26,7 +26,10 @@ class StockfishService {
     const pool = await this.getPool();
     const engine = await pool.acquire();
     try {
-      await engine.setOptions({ "Skill Level": this.levelToSkill(level) });
+      await engine.setOptions({
+        "Skill Level": this.levelToSkill(level),
+        hash: 16,
+      });
       const result = await engine.analyze(fen, this.levelToDepth(level));
       if (!result.bestmove || result.bestmove === "(none)")
         throw new Error("No move available");
