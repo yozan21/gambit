@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import monitorRoutes from "./routes/monitor.routes.js";
 import errorHandler from "./utils/errorHandler.js";
 import ApiError from "./utils/ApiError.js";
 import mongoDB from "./plugins/mongoDB.js";
@@ -114,15 +115,8 @@ async function buildAppRaw(app: FastifyInstance) {
   });
 
   //health
-  app.get("/health", async () => {
-    const mem = process.memoryUsage();
-    return {
-      rss: `${Math.round(mem.rss / 1024 / 1024)} MB`, // total RAM used by process
-      heap: `${Math.round(mem.heapUsed / 1024 / 1024)} MB`, // V8 heap
-      external: `${Math.round(mem.external / 1024 / 1024)} MB`, // WASM/native (Stockfish lives here)
-    };
-  });
 
+  await app.register(monitorRoutes, { prefix: "/api/v1/monitor" });
   // Routes
   await app.register(userRoutes, { prefix: "/api/v1/users" });
   await app.register(authRoutes, { prefix: "/api/v1/auth" });
