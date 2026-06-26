@@ -113,6 +113,16 @@ async function buildAppRaw(app: FastifyInstance) {
     },
   });
 
+  //health
+  app.get("/health", async () => {
+    const mem = process.memoryUsage();
+    return {
+      rss: `${Math.round(mem.rss / 1024 / 1024)} MB`, // total RAM used by process
+      heap: `${Math.round(mem.heapUsed / 1024 / 1024)} MB`, // V8 heap
+      external: `${Math.round(mem.external / 1024 / 1024)} MB`, // WASM/native (Stockfish lives here)
+    };
+  });
+
   // Routes
   await app.register(userRoutes, { prefix: "/api/v1/users" });
   await app.register(authRoutes, { prefix: "/api/v1/auth" });
