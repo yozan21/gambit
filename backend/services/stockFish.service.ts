@@ -7,7 +7,7 @@ class StockfishService {
 
   private async getPool(): Promise<StockfishPool> {
     if (!this.pool) {
-      this.pool = new StockfishPool(2);
+      this.pool = new StockfishPool(1);
       await this.pool.initialize();
     }
     this.resetIdleTimer();
