@@ -15,7 +15,7 @@ const app = Fastify({
 const start = async () => {
   try {
     await buildApp(app);
-    await app.listen({ port: PORT });
+    await app.listen({ port: PORT, host: "0.0.0.0" });
     console.log(`🚀 Server running at http://localhost:${PORT}`);
   } catch (err) {
     app.log.error(`Server setup failed: ${err}`);
