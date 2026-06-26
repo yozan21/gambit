@@ -131,6 +131,7 @@ export default class BotGame {
 
   // Thinking delay in ms
   private thinkingDelay(): number {
+    if (process.env.NODE_ENV === "production") return 0;
     const roll = Math.random();
 
     // At low levels, humans spend more time on every move.
