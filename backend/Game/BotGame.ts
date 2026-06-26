@@ -131,7 +131,7 @@ export default class BotGame {
 
   // Thinking delay in ms
   private thinkingDelay(): number {
-    if (process.env.NODE_ENV === "production") return 0;
+    // if (process.env.NODE_ENV === "production") return 0;
     const roll = Math.random();
 
     // At low levels, humans spend more time on every move.
@@ -157,7 +157,7 @@ export default class BotGame {
 
     // Scale down the delay as level increases — high levels feel snappier
     // because Stockfish's own depth computation fills the remaining time.
-    return Math.round(base * levelFactor + 300);
+    return Math.round(base * levelFactor + 100);
   }
 
   async getBotMove(): Promise<{
