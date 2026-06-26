@@ -28,7 +28,6 @@ class StockfishService {
     try {
       await engine.setOptions({
         "Skill Level": this.levelToSkill(level),
-        hash: 16,
       });
       const result = await engine.analyze(fen, this.levelToDepth(level));
       if (!result.bestmove || result.bestmove === "(none)")
