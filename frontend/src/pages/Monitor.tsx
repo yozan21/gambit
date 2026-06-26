@@ -291,6 +291,14 @@ export default function MemoryMonitor() {
               <span className="flex items-center gap-1">
                 <span className="inline-block h-0.5 w-3 bg-yellow-500" />
                 External (Stockfish)
+              </span>{" "}
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-0.5 w-3 bg-[#ed003b]" />
+                Total Heap Size
+              </span>{" "}
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-0.5 w-3 bg-[#b600ed]" />
+                Array Buffers
               </span>
             </div>
           )}
