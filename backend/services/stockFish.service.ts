@@ -17,7 +17,7 @@ class StockfishService {
   private resetIdleTimer() {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(async () => {
-      await this.pool?.terminate();
+      this.pool?.terminate();
       this.pool = null;
     }, this.IDLE_TIMEOUT);
   }
