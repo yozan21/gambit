@@ -18,7 +18,10 @@ import type { UpdatePasswordBody } from "../utils/types.js";
 import ApiError from "../utils/ApiError.js";
 
 const userRoutes = async function (app: FastifyInstance) {
-  app.get("/", getUsers);
+  app.get("/", {
+    preHandler: [authGuard],
+    handler: getUsers,
+  });
 
   app.get("/:id", {
     schema: {

@@ -28,6 +28,7 @@ import CompleteSignup from "./components/forms/CompleteSignup.tsx";
 import { registerBotSocketListeners } from "./services/botSocket.ts";
 import BotLobby from "./pages/BotLobby.tsx";
 import BotGame from "./pages/BotGame.tsx";
+import MemoryMonitor from "./pages/Monitor.tsx";
 
 /* =====================
    Router Configuration
@@ -111,6 +112,10 @@ export const router = createBrowserRouter([
       {
         path: "/privacy-policy",
         element: <PrivacyPolicy />,
+      },
+      {
+        path: "/monitor",
+        element: <MemoryMonitor />,
       },
       {
         path: "*",
