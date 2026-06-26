@@ -8,8 +8,9 @@ class BotGameManager {
     player: GamePlayer,
     level: number,
     playerColor: PlayerColor,
+    existingId?: string,
   ): BotGame {
-    const id = crypto.randomUUID();
+    const id = existingId ?? crypto.randomUUID();
     const game = new BotGame(id, player, level, playerColor);
     this.games.set(id, game);
     return game;

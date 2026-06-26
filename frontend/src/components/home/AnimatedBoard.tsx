@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chessboard } from "react-chessboard";
 
@@ -45,7 +45,7 @@ const SICILIAN_POSITIONS = [
   },
 ];
 
-const AnimatedBoard = memo(function () {
+const AnimatedBoard = function () {
   const [fenIndex, setFenIndex] = useState(0);
 
   const current = SICILIAN_POSITIONS[fenIndex];
@@ -143,5 +143,5 @@ const AnimatedBoard = memo(function () {
       </motion.p>
     </motion.div>
   );
-});
+};
 export default AnimatedBoard;

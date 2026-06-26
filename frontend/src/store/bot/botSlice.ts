@@ -39,6 +39,7 @@ export interface BotChessState {
   selectedSquare: string | null;
   isStalled: boolean;
 
+  adToken: string | null;
   hintsRemaining: number;
   hintSquares: { from: string; to: string } | null;
   isBotThinking: boolean; // blocks bot-move waiting AND hint button while a request is in flight
@@ -73,7 +74,8 @@ const initialState: BotChessState = {
   selectedSquare: null,
   isStalled: false,
 
-  hintsRemaining: 3,
+  adToken: null,
+  hintsRemaining: 5,
   hintSquares: null,
   isBotThinking: false,
 
@@ -153,6 +155,7 @@ const botChessSlice = createSlice({
         hintsRemaining: number;
         color: PlayerColor;
         username: string;
+        status: BoardStatus;
       }>,
     ) => {
       const {
@@ -164,6 +167,7 @@ const botChessSlice = createSlice({
         hintsRemaining,
         color,
         username,
+        status,
       } = action.payload;
       state.gameId = gameId;
       state.fen = fen;
@@ -179,7 +183,7 @@ const botChessSlice = createSlice({
         color: color === "w" ? "b" : "w",
       };
       state.gameStatus = "playing";
-      state.boardStatus = "ongoing";
+      state.boardStatus = status;
       state.result = null;
       state.winner = null;
       state.resumePrompt = null;
@@ -190,6 +194,76 @@ const botChessSlice = createSlice({
               to: moves[moves.length - 1].to,
             }
           : null;
+    },
+
+    botGameRestored: (
+      state,
+      action: PayloadAction<{
+        gameId: string;
+        fen: string;
+        moves: MoveEntry[];
+        turn: PlayerColor;
+        level: number;
+        hintsRemaining: number;
+        color: PlayerColor;
+        username: string;
+        status: BoardStatus;
+      }>,
+    ) => {
+      const {
+        gameId,
+        fen,
+        moves,
+        turn,
+        level,
+        hintsRemaining,
+        color,
+        username,
+        status,
+      } = action.payload;
+
+      state.gameId = gameId;
+      state.fen = fen;
+      state.moves = moves;
+      state.turn = turn;
+      state.level = level;
+      state.hintsRemaining = hintsRemaining;
+      state.hintSquares = null;
+      state.isStalled = false;
+      state.me = { username, color };
+      state.bot = {
+        username: `Bot · Lv ${level}`,
+        color: color === "w" ? "b" : "w",
+      };
+      state.gameStatus = "playing";
+      state.boardStatus = status;
+      state.result = null;
+      state.winner = null;
+      state.resumePrompt = null;
+      state.lastMove =
+        moves.length > 0
+          ? {
+              from: moves[moves.length - 1].from,
+              to: moves[moves.length - 1].to,
+            }
+          : null;
+    },
+
+    botGameEnded: (
+      state,
+      action: PayloadAction<{
+        result: GameResult;
+        winner: PlayerColor | null;
+      }>,
+    ) => {
+      const { result, winner } = action.payload;
+      state.boardStatus = "ended";
+      state.gameStatus = "ended";
+      state.result = result;
+      state.isStalled = false;
+      state.winner = winner;
+      state.soundType = "end";
+      state.isBotThinking = false;
     },
 
     /* ========= Moves ========= */
@@ -287,9 +361,18 @@ const botChessSlice = createSlice({
     },
 
     /* ========= Hints ========= */
+    adSessionReady: (
+      state,
+      action: PayloadAction<{
+        adToken: string;
+      }>,
+    ) => {
+      state.adToken = action.payload.adToken;
+    },
 
     hintRequested: (state) => {
       state.isBotThinking = true;
+      state.adToken = null;
     },
 
     hintReceived: (
@@ -303,23 +386,28 @@ const botChessSlice = createSlice({
       state.hintSquares = { from: action.payload.from, to: action.payload.to };
       state.hintsRemaining = action.payload.hintsRemaining;
       state.isBotThinking = false;
+      state.adToken = null;
     },
 
     hintDenied: (state) => {
       state.isBotThinking = false;
+      state.adToken = null;
     },
 
     hintGranted: (state, action: PayloadAction<{ hintsRemaining: number }>) => {
       state.hintsRemaining = action.payload.hintsRemaining;
+      state.adToken = null;
     },
 
     hintCleared: (state) => {
       state.hintSquares = null;
+      state.adToken = null;
     },
 
     hintError: (state) => {
       state.isBotThinking = false;
       state.hintSquares = null;
+      state.adToken = null;
     },
 
     /* ========= Promotion ========= */
@@ -352,6 +440,7 @@ export const {
   botGameCreated,
   botGameResumePrompted,
   botGameResumed,
+  botGameEnded,
   botMoveApplied,
   botThinking,
   botGameStalled,
@@ -361,10 +450,12 @@ export const {
   hintDenied,
   hintGranted,
   hintCleared,
+  adSessionReady,
   promotionRequested,
   promotionCancelled,
   squareSelected,
   soundConsumed,
+  botGameRestored,
   resetBotGame,
 } = botChessSlice.actions;
 

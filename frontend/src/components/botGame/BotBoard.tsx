@@ -1,10 +1,11 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess, type Square } from "chess.js";
 import { useAppDispatch, useAppSelector } from "@/hooks/dispatch";
 import { squareSelected } from "@/store/bot/botSlice";
 import { socket } from "@/services/socket";
 import type { PieceDropHandlerArgs, SquareHandlerArgs } from "react-chessboard";
+import { HintPieceAnimation } from "./HintPieceAnimation";
 
 interface BotBoardProps {
   disabled?: boolean;
@@ -23,6 +24,9 @@ const BotBoard = memo(function ({ disabled = false }: BotBoardProps) {
   const hintSquares = useAppSelector((s) => s.botChess.hintSquares);
 
   const game = useMemo(() => new Chess(fen), [fen]);
+
+  const boardWrapperRef = useRef<HTMLDivElement>(null);
+  const [hintCancelSignal, setHintCancelSignal] = useState(0);
 
   const possibleMoves = useMemo(() => {
     if (!selectedSquare) return [];
@@ -114,6 +118,9 @@ const BotBoard = memo(function ({ disabled = false }: BotBoardProps) {
 
   const handleSquareClick = useCallback(
     (square: string) => {
+      // Cancel hint animation on any board interaction
+      setHintCancelSignal((n) => n + 1);
+
       if (disabled || !isMyTurn) return;
       const clickedPiece = game.get(square as Square);
 
@@ -142,32 +149,34 @@ const BotBoard = memo(function ({ disabled = false }: BotBoardProps) {
 
   const handlePieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: PieceDropHandlerArgs): boolean => {
+      setHintCancelSignal((n) => n + 1);
       if (disabled || !isMyTurn || !targetSquare) return false;
-
       const piece = game.get(sourceSquare as Square);
       if (!piece || piece.color !== me?.color) return false;
-
       const moves = game.moves({
         square: sourceSquare as Square,
         verbose: true,
       });
       if (!moves.find((m) => m.to === targetSquare)) return false;
-
       attemptMove(sourceSquare, targetSquare);
       return true;
     },
     [attemptMove, disabled, game, isMyTurn, me?.color],
   );
+  const boardOrientation = me?.color === "w" ? "white" : "black";
 
   return (
-    <div className="shadow-board aspect-square w-full overflow-hidden rounded-xs">
+    <div
+      ref={boardWrapperRef}
+      className="shadow-board relative aspect-square w-full overflow-hidden rounded-xs"
+    >
       <Chessboard
         options={{
           position: fen,
           onSquareClick: ({ square }: SquareHandlerArgs) =>
             handleSquareClick(square),
           onPieceDrop: handlePieceDrop,
-          boardOrientation: me?.color === "w" ? "white" : "black",
+          boardOrientation,
           squareStyles: customSquareStyles,
           allowDragging: !disabled && isMyTurn,
           lightSquareStyle: { backgroundColor: "var(--board-light)" },
@@ -177,6 +186,12 @@ const BotBoard = memo(function ({ disabled = false }: BotBoardProps) {
           alphaNotationStyle: notationStyle,
           numericNotationStyle: notationStyle,
         }}
+      />
+      <HintPieceAnimation
+        boardRef={boardWrapperRef}
+        hintSquares={hintSquares}
+        orientation={boardOrientation}
+        cancelSignal={hintCancelSignal}
       />
     </div>
   );

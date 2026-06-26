@@ -1,7 +1,7 @@
 // components/botLobby/PathNodeButton.tsx
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Lock, Check, Zap } from "lucide-react";
+import { Lock, Check, Zap, Crown, Star } from "lucide-react";
 import type { PathNode } from "@/utils/pathLayout";
 import type { Tier } from "@/utils/tiers";
 
@@ -19,8 +19,6 @@ interface PathNodeButtonProps {
 
 type NodeShape = Tier["theme"]["nodeShape"];
 
-// All shapes fit within a size×size SVG viewBox.
-// pad keeps the stroke from being cropped at the SVG boundary.
 function ShapeElement({
   shape,
   size,
@@ -28,6 +26,7 @@ function ShapeElement({
   fillOpacity,
   stroke,
   strokeWidth,
+  strokeOpacity,
   strokeDasharray,
 }: {
   shape: NodeShape;
@@ -36,6 +35,7 @@ function ShapeElement({
   fillOpacity: number;
   stroke: string;
   strokeWidth: number;
+  strokeOpacity: number;
   strokeDasharray?: string;
 }) {
   const half = size / 2;
@@ -47,6 +47,7 @@ function ShapeElement({
     fillOpacity,
     stroke,
     strokeWidth,
+    strokeOpacity,
     strokeDasharray,
     strokeLinejoin: "round" as const,
   };
@@ -149,15 +150,17 @@ export const PathNodeButton = memo(
 
     const nodeSize = isFrontier
       ? tier.theme.nodeSize + 8
-      : isGate
-        ? tier.theme.nodeSize + 4
-        : tier.theme.nodeSize;
+      : isLockedGate
+        ? tier.theme.nodeSize + 12 // ← bigger locked gate teaser
+        : isGate
+          ? tier.theme.nodeSize + 4
+          : tier.theme.nodeSize + 2;
 
     const isBoss = node.level % 25 === 0;
     const isMiniBoss = node.level % 10 === 0 && !isBoss;
 
     // Fill
-    const fillColor = isLocked && !isGate ? "#666" : tier.theme.primary;
+    const fillColor = isLocked && !isGate ? "#2b2b2b" : tier.theme.primary;
     const fillOpacity = isPanelOpen
       ? 0.85
       : isCompleted
@@ -168,7 +171,7 @@ export const PathNodeButton = memo(
             ? 0.28
             : !isLocked
               ? 0.18
-              : 0.05;
+              : 1;
 
     // Stroke
     const strokeColor =
@@ -184,12 +187,10 @@ export const PathNodeButton = memo(
             ? 1
             : !isLocked
               ? 0.65
-              : 0.25;
+              : 1;
 
-    // SVG stroke supports dashes natively — gate locked gets a dashed border
     const strokeDasharray = isLockedGate ? "4 3" : undefined;
 
-    // drop-shadow follows the SVG shape, not the bounding box
     const dropShadow = isFrontier
       ? `drop-shadow(0 0 8px ${tier.theme.primary}90)`
       : isPanelOpen
@@ -202,19 +203,19 @@ export const PathNodeButton = memo(
       <motion.button
         ref={nodeRef}
         initial={{ opacity: 0, scale: 0.3 }}
-        animate={{ opacity: isLocked && !isGate ? 0.38 : 1, scale: 1 }}
+        animate={{ opacity: isLocked && !isGate ? 0.65 : 1, scale: 1 }}
         transition={{
           delay: Math.min(node.level * 0.002, 0.4),
           type: "spring",
         }}
         onClick={() => onClick(node.level)}
         disabled={!isAccessible}
-        className="group relative flex items-center justify-center"
+        className="group relative flex cursor-pointer items-center justify-center"
         style={{ width: nodeSize, height: nodeSize }}
         whileHover={isAccessible ? { scale: 1.15, zIndex: 10 } : {}}
         whileTap={isAccessible ? { scale: 0.9 } : {}}
       >
-        {/* Frontier pulse ring — SVG so it follows the exact shape */}
+        {/* Frontier pulse ring */}
         {isFrontier && (
           <motion.svg
             className="pointer-events-none absolute inset-0"
@@ -231,30 +232,12 @@ export const PathNodeButton = memo(
               fillOpacity={0.35}
               stroke="none"
               strokeWidth={0}
+              strokeOpacity={0}
             />
           </motion.svg>
         )}
 
-        {/* Completed halo — static, calm */}
-        {isCompleted && !isFrontier && (
-          <svg
-            className="pointer-events-none absolute inset-0"
-            width={nodeSize}
-            height={nodeSize}
-            style={{ overflow: "visible", transform: "scale(1.28)" }}
-          >
-            <ShapeElement
-              shape={tier.theme.nodeShape}
-              size={nodeSize}
-              fill={tier.theme.primary}
-              fillOpacity={0.1}
-              stroke="none"
-              strokeWidth={0}
-            />
-          </svg>
-        )}
-
-        {/* Main shape — SVG stroke is never clipped, works on every shape */}
+        {/* Main shape */}
         <svg
           className="pointer-events-none absolute inset-0"
           width={nodeSize}
@@ -268,37 +251,17 @@ export const PathNodeButton = memo(
             fillOpacity={fillOpacity}
             stroke={strokeColor}
             strokeWidth={strokeWidth}
-            strokeDasharray={strokeDasharray}
-          />
-          {/* Stroke opacity as a separate attribute isn't on ShapeElement,
-              so wrap in a group */}
-          <g opacity={strokeOpacity} />
-        </svg>
-
-        {/* Stroke opacity layer — re-render shape transparent fill, only stroke counts */}
-        <svg
-          className="pointer-events-none absolute inset-0"
-          width={nodeSize}
-          height={nodeSize}
-          style={{ overflow: "visible", opacity: strokeOpacity }}
-        >
-          <ShapeElement
-            shape={tier.theme.nodeShape}
-            size={nodeSize}
-            fill="transparent"
-            fillOpacity={0}
-            stroke={strokeColor}
-            strokeWidth={strokeWidth}
+            strokeOpacity={strokeOpacity}
             strokeDasharray={strokeDasharray}
           />
         </svg>
 
-        {/* Content — HTML centered on top of SVG layers */}
+        {/* Content */}
         <div className="pointer-events-none relative z-10 flex items-center justify-center">
           {isLocked && !isGate && (
             <Lock
               className="h-3.5 w-3.5"
-              style={{ color: "var(--text-muted)", opacity: 0.5 }}
+              style={{ color: "var(--text-muted)" }}
             />
           )}
           {isCompleted && (
@@ -314,9 +277,12 @@ export const PathNodeButton = memo(
           {!isLocked &&
             !isCompleted &&
             (isBoss ? (
-              <span className="text-base leading-none">{tier.icon}</span>
+              <Crown
+                className="h-5 w-5"
+                style={{ color: tier.theme.primary }}
+              />
             ) : isMiniBoss ? (
-              <span className="text-xs leading-none">{tier.icon}</span>
+              <Star className="h-4 w-4" style={{ color: tier.theme.primary }} />
             ) : (
               <span
                 className="text-xs leading-none font-bold"
@@ -344,12 +310,9 @@ export const PathNodeButton = memo(
             }}
           >
             {isLockedGate ? (
-              <>
-                <span style={{ color: tier.theme.primary }}>
-                  ⚡ Try {tier.name}
-                </span>
-                <span className="ml-1 opacity-60">— Gate</span>
-              </>
+              <span style={{ color: tier.theme.primary }}>
+                ⚡ Skip to {tier.name}
+              </span>
             ) : (
               <>
                 Level {node.level}

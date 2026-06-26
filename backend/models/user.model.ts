@@ -26,6 +26,7 @@ export interface IUser {
     botLooses: number;
   };
   unlockedBotLevel: number;
+  completedBotLevels: number[];
 
   games: mongoose.Types.ObjectId[];
 
@@ -123,7 +124,9 @@ const UserSchema = new Schema<
       botWins: { type: Number, default: 0 },
       botLosses: { type: Number, default: 0 },
     },
+
     unlockedBotLevel: { type: Number, default: 1 },
+    completedBotLevels: { type: [Number], default: [] },
 
     games: [
       {

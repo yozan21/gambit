@@ -16,6 +16,8 @@ import fastifyCookie from "@fastify/cookie";
 import { roomManager } from "./Game/RoomManager.js";
 import { botGameManager } from "./Game/BotGameManager.js";
 import { GameRecord } from "./models/gameRecord.model.js";
+import { GATE_LEVELS } from "./utils/tiers.js";
+import { generateAdToken, verifyAdToken } from "./utils/tokenUtils.js";
 
 function verifyToken(token: string, secret: string) {
   try {
@@ -389,10 +391,18 @@ export default function socketServer(io: Server) {
         if (activeGame.status === "ended")
           return socket.emit("error", { message: "Game already ended" });
 
+        // Cancel abandonment timer — player made it back in time
+        const pendingTimer = activeGame.disconnectTimers.get(
+          socket.data.userId,
+        );
+        if (pendingTimer) {
+          clearTimeout(pendingTimer);
+          activeGame.disconnectTimers.delete(socket.data.userId);
+        }
+
         const player = activeGame.getPlayerByUserId(socket.data.userId)!;
         const opponent = activeGame.getOpponent(socket.data.userId)!;
 
-        // Kick old socket if different device
         if (player.socketId !== socket.id) {
           const oldSocket = io.sockets.sockets.get(player.socketId);
           if (oldSocket) {
@@ -406,8 +416,8 @@ export default function socketServer(io: Server) {
         activeGame.updateSocketId(socket.data.userId, socket.id);
         socket.join(activeGame.id);
 
-        io.to(opponent.socketId).emit("opponent:disconnected", {
-          message: "Opponent rejoined",
+        io.to(opponent.socketId).emit("opponent:reconnected", {
+          message: "Opponent reconnected",
         });
 
         socket.emit("gameRejoined", {
@@ -443,6 +453,17 @@ export default function socketServer(io: Server) {
         });
       }
 
+      // Validate requested level — allow if within unlocked range OR it's a
+      // gate level (first level of any tier). Gate levels are always accessible
+      // as a skip challenge regardless of current progress.
+      const user = await getOneUser(socket.data.userId);
+      const unlockedBotLevel: number = user.unlockedBotLevel ?? 1;
+      const isGateLevel = GATE_LEVELS.has(level);
+
+      if (level > unlockedBotLevel && !isGateLevel) {
+        return socket.emit("error", { message: "Level not yet unlocked." });
+      }
+
       // Check for existing in-progress bot game
       const existingBotGame = botGameManager.getGameByUserId(
         socket.data.userId,
@@ -456,6 +477,7 @@ export default function socketServer(io: Server) {
           level: existingBotGame.level,
           hintsRemaining: existingBotGame.getHintsRemaining(),
           color: existingBotGame.playerColor,
+          status: existingBotGame.status,
         });
       }
 
@@ -467,10 +489,10 @@ export default function socketServer(io: Server) {
         ],
         mode: "bot",
         status: "in_progress",
+        botLevel: level,
       }).sort({ updatedAt: -1 });
 
-      if (savedGame) {
-        // Restore game into memory
+      if (savedGame && savedGame.moves.length > 0) {
         const playerColor: PlayerColor =
           savedGame.whitePlayer?.toString() === socket.data.userId ? "w" : "b";
 
@@ -486,9 +508,9 @@ export default function socketServer(io: Server) {
           player,
           savedGame.botLevel!,
           playerColor,
+          savedGame.gameId,
         );
 
-        // Restore state
         for (const move of savedGame.moves) {
           const moveObj: { from: string; to: string; promotion?: string } = {
             from: move.from,
@@ -497,11 +519,13 @@ export default function socketServer(io: Server) {
           if (move.promotion) moveObj.promotion = move.promotion;
           game.chess.move(moveObj);
         }
+
         game.moves = savedGame.moves as any;
         game.history = savedGame.history ?? [];
         game.hintsUsed = savedGame.hintsUsed ?? 0;
         game.hintsAllowed = savedGame.hintsAllowed ?? 3;
         game.startedAt = savedGame.startedAt;
+        game.status = savedGame.boardStatus;
 
         return socket.emit("botGameResume", {
           gameId: game.id,
@@ -511,6 +535,7 @@ export default function socketServer(io: Server) {
           level: game.level,
           hintsRemaining: game.getHintsRemaining(),
           color: playerColor,
+          status: game.status,
         });
       }
 
@@ -526,7 +551,12 @@ export default function socketServer(io: Server) {
         color: playerColor,
       };
 
-      const game = botGameManager.createGame(player, level, playerColor);
+      const game = botGameManager.createGame(
+        player,
+        level,
+        playerColor,
+        savedGame?.gameId,
+      );
 
       socket.emit("botGameCreated", {
         gameId: game.id,
@@ -582,7 +612,7 @@ export default function socketServer(io: Server) {
           result: Result;
           winner: PlayerColor | null;
           message: string;
-          levelUnlocked?: number;
+          levelCompleted?: number;
         } = {
           result: res.result!,
           winner: res.winner,
@@ -590,7 +620,7 @@ export default function socketServer(io: Server) {
         };
 
         if (playerWon) {
-          botGameOverPayload.levelUnlocked = game.level + 1;
+          botGameOverPayload.levelCompleted = game.level;
         }
 
         socket.emit("botGameOver", botGameOverPayload);
@@ -668,18 +698,39 @@ export default function socketServer(io: Server) {
       });
     });
 
+    /* ========= REQUEST AD HINT ========= */
+    socket.on("requestAdHint", async ({ gameId }) => {
+      const game = botGameManager.getGame(gameId);
+      if (!game) return socket.emit("hintDenied", { reason: "game_not_found" });
+      if (game.player.userId !== socket.data.userId) return;
+      if (game.isBotThinking)
+        return socket.emit("hintDenied", { reason: "bot_thinking" });
+
+      // Sign a short-lived token bound to this game + user
+      const token = await generateAdToken({
+        gameId,
+        userId: socket.data.userId,
+        type: "ad_hint",
+      });
+      socket.emit("adSessionReady", { gameId, adToken: token });
+    });
+
     /* ========= GRANT AD HINT ========= */
 
     socket.on("grantAdHint", async ({ gameId, adToken }) => {
       const game = botGameManager.getGame(gameId);
       if (!game) return socket.emit("error", { message: "Game not found" });
 
-      if (game.player.userId !== socket.data.userId) {
-        return socket.emit("error", { message: "Unauthorized" });
+      if (game.player.userId !== socket.data.userId || !adToken) {
+        return socket.emit("hintDenied", { reason: "Unauthorized" });
       }
 
-      // TODO: Validate adToken with your ad provider
-      // For now, we grant the hint (you'll add real validation)
+      const payload = await verifyAdToken(adToken);
+      if (payload.gameId !== gameId || payload.userId !== game.player.userId)
+        return socket.emit("hintDenied", {
+          reason: "Unauthorized",
+        });
+
       if (game.isBotThinking)
         return socket.emit("hintDenied", {
           reason: "already_processing",
@@ -718,16 +769,76 @@ export default function socketServer(io: Server) {
       await game.save("in_progress");
     });
 
+    /* ========= RESET BOT GAME ========= */
+    socket.on("resetBotGame", async ({ gameId, level }) => {
+      const oldGame = botGameManager.getGame(gameId);
+      if (!oldGame) return socket.emit("error", { message: "Game not found" });
+      if (oldGame.player.userId !== socket.data.userId) {
+        return socket.emit("error", { message: "Unauthorized" });
+      }
+      if (level !== oldGame.level)
+        return socket.emit("error", { message: "Unauthorized" });
+      let game;
+      if (oldGame.phase === "ended") {
+        await oldGame.save("completed");
+        game = botGameManager.createGame(
+          oldGame.player,
+          oldGame.level,
+          oldGame.playerColor,
+        );
+        botGameManager.removeGame(oldGame.id);
+      } else {
+        oldGame.restart(); // Restart old game
+        game = oldGame;
+      }
+
+      socket.emit("botGameCreated", {
+        gameId: game.id,
+        color: game.playerColor,
+        level: game.level,
+        hintsRemaining: game.getHintsRemaining(),
+      });
+
+      // If player is black, bot moves first after restart
+      if (game.playerColor === "b") {
+        const botRes = await game.getBotMove();
+        if (botRes.ok) {
+          socket.emit("botMove", botRes as any);
+          await game.save("in_progress");
+        }
+      }
+    });
+
     /* ========= RESTART BOT GAME ========= */
-    socket.on("restartBotGame", async ({ gameId }) => {
-      const game = botGameManager.getGame(gameId);
-      if (!game) return socket.emit("error", { message: "Game not found" });
+    socket.on("restartBotGame", async ({ gameId, color, level }) => {
+      const oldGame = botGameManager.getGame(gameId);
+      if (!oldGame) return socket.emit("error", { message: "Game not found" });
+      if (oldGame.player.userId !== socket.data.userId) {
+        return socket.emit("error", { message: "Unauthorized" });
+      }
+      if (level !== oldGame.level)
+        return socket.emit("error", { message: "Unauthorized" });
 
-      if (game.phase === "ended") {
-        await game.save("completed");
-      } else await game.save("abandoned"); // Save old game as abandoned
+      let game;
+      if (oldGame.phase === "ended") {
+        await oldGame.save("completed");
+      } else {
+        await oldGame.save("abandoned");
+      }
+      botGameManager.removeGame(oldGame.id);
 
-      game.restart();
+      const playerColor: PlayerColor =
+        color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color;
+
+      const player: GamePlayer = {
+        socketId: socket.id,
+        userId: socket.data.userId,
+        username: socket.data.username,
+        elo: socket.data.elo,
+        color: playerColor,
+      };
+
+      game = botGameManager.createGame(player, level, playerColor);
 
       socket.emit("botGameCreated", {
         gameId: game.id,
@@ -750,6 +861,9 @@ export default function socketServer(io: Server) {
     socket.on("continueBotGame", ({ gameId }) => {
       const game = botGameManager.getGame(gameId);
       if (!game) return socket.emit("error", { message: "Game not found" });
+      if (game.player.userId !== socket.data.userId) {
+        return socket.emit("error", { message: "Unauthorized" });
+      }
 
       socket.emit("botGameResume", {
         gameId: game.id,
@@ -759,6 +873,80 @@ export default function socketServer(io: Server) {
         level: game.level,
         hintsRemaining: game.getHintsRemaining(),
         color: game.playerColor,
+        status: game.status,
+      });
+    });
+
+    /* ========= RESTORE BOT GAME ========= */
+
+    socket.on("restoreBotGame", async ({ gameId }) => {
+      // Check memory first — might still be there
+      let game = botGameManager.getGame(gameId);
+
+      if (!game) {
+        // Not in memory — fetch from DB
+        const savedGame = await GameRecord.findOne({
+          gameId,
+          $or: [
+            { whitePlayer: socket.data.userId },
+            { blackPlayer: socket.data.userId },
+          ],
+          status: "in_progress",
+        });
+
+        if (!savedGame) {
+          return socket.emit("error", {
+            message: "Game not found or already ended",
+          });
+        }
+
+        const playerColor: PlayerColor =
+          savedGame.whitePlayer?.toString() === socket.data.userId ? "w" : "b";
+
+        const player: GamePlayer = {
+          socketId: socket.id,
+          userId: socket.data.userId,
+          username: socket.data.username,
+          elo: socket.data.elo,
+          color: playerColor,
+        };
+
+        // Rebuild game in memory from DB record
+        game = botGameManager.createGame(
+          player,
+          savedGame.botLevel!,
+          playerColor,
+          gameId,
+        );
+
+        for (const move of savedGame.moves) {
+          const moveObj: { from: string; to: string; promotion?: string } = {
+            from: move.from,
+            to: move.to,
+          };
+          if (move.promotion) moveObj.promotion = move.promotion;
+          game.chess.move(moveObj);
+        }
+
+        game.moves = savedGame.moves as any;
+        game.history = savedGame.history ?? [];
+        game.hintsUsed = savedGame.hintsUsed ?? 0;
+        game.hintsAllowed = savedGame.hintsAllowed ?? 5;
+        game.startedAt = savedGame.startedAt;
+        game.status = savedGame.boardStatus;
+      }
+
+      // Emit directly as restored
+      socket.emit("botGameRestored", {
+        gameId: game.id,
+        fen: game.getFen(),
+        moves: game.moves,
+        turn: game.getTurn(),
+        level: game.level,
+        hintsRemaining: game.getHintsRemaining(),
+        color: game.playerColor,
+        username: game.player.username,
+        status: game.status,
       });
     });
 
@@ -769,60 +957,48 @@ export default function socketServer(io: Server) {
 
       // Save bot game state on disconnect
       const activeBotGame = botGameManager.getGameByUserId(socket.data.userId);
-      if (activeBotGame && activeBotGame.phase !== "ended") {
-        await activeBotGame.save("in_progress");
-      } else if (activeBotGame && activeBotGame.phase === "ended") {
-        await activeBotGame.save("completed");
+      if (activeBotGame) {
+        if (activeBotGame.phase !== "ended") {
+          await activeBotGame.save("in_progress");
+        } else if (activeBotGame && activeBotGame.phase === "ended") {
+          await activeBotGame.save("completed");
+        }
         botGameManager.removeGame(activeBotGame.id);
       }
-
       const activeGame = gameManager.getGameByUserId(socket.data.userId);
       if (!activeGame) return;
       if (activeGame.status === "ended") return;
 
-      // Friend mode — end immediately
       const opponent = activeGame.getOpponent(socket.data.userId);
-      if (activeGame.mode === "friend") {
-        const player = activeGame.getPlayerByUserId(socket.data.userId);
-        const winnerColor = opponent?.color;
+      if (!opponent) return;
 
-        io.to(opponent!.socketId).emit("gameOver", {
-          result: "abandonment",
-          winner: winnerColor,
-          message: "Opponent disconnected. You win!",
-        });
-
-        activeGame.endGame("abandonment", winnerColor);
-        activeGame.stopGame();
-        gameManager.removeGame(activeGame.id);
-        return;
-      }
-
-      io.to(opponent!.socketId).emit("opponent:disconnected", {
-        message: "Opponent disconnected, waiting for them to rejoin...",
+      // Friend AND ranked — both get grace period now
+      io.to(opponent.socketId).emit("opponent:disconnected", {
+        message: "Opponent disconnected. Waiting 30 seconds...",
       });
 
-      setTimeout(async () => {
+      const timer = setTimeout(async () => {
         const game = gameManager.getGameByUserId(socket.data.userId);
         if (!game) return;
 
-        const player = game.getPlayerByUserId(socket.data.userId);
         const opponent = game.getOpponent(socket.data.userId);
+        if (!opponent) return;
 
-        if (player?.socketId === socket.id) {
-          const winnerColor = opponent?.color;
+        const winnerColor = opponent.color;
 
-          io.to(opponent!.socketId).emit("gameOver", {
-            result: "abandonment",
-            winner: winnerColor,
-            message: "Opponent abandoned the game. You win!",
-          });
+        io.to(opponent.socketId).emit("gameOver", {
+          result: "abandonment",
+          winner: winnerColor,
+          message: "Opponent abandoned the game. You win!",
+        });
 
-          await game.endGame("abandonment");
-          game.stopGame();
-          gameManager.removeGame(game.id);
-        }
+        await game.endGame("abandonment", winnerColor);
+        game.stopGame();
+        gameManager.removeGame(game.id);
       }, 30000);
+
+      // Store so restoreGame can cancel it
+      activeGame.disconnectTimers.set(socket.data.userId, timer);
     });
   });
 }

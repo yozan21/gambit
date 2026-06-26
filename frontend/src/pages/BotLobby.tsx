@@ -7,14 +7,14 @@ import {
   useRef,
   useCallback,
 } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import Navbar from "@/components/ui/NavBar";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useActiveTier } from "@/hooks/useActiveTier";
 import { useAppDispatch, useAppSelector } from "@/hooks/dispatch";
 import { connectSocket, socket } from "@/services/socket";
 import { resetBotGame } from "@/store/bot/botSlice";
-import { TIERS, tierForLevel } from "@/utils/tiers";
+import { GATE_LEVELS, TIERS, tierForLevel } from "@/utils/tiers";
 import {
   buildSvgPath,
   computePath,
@@ -34,17 +34,22 @@ export default function BotLobby() {
   usePageTitle("Play vs Bot");
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
 
   const user = useAppSelector((s) => s.auth.user);
   const resumePrompt = useAppSelector((s) => s.botChess.resumePrompt);
-  const gameId = useAppSelector((s) => s.botChess.gameId);
-  const gameStatus = useAppSelector((s) => s.botChess.gameStatus);
+  // const gameId = useAppSelector((s) => s.botChess.gameId);
+  // const gameStatus = useAppSelector((s) => s.botChess.gameStatus);
 
   const unlockedLevel = user?.unlockedBotLevel ?? 1;
+  const completedLevels = user?.completedBotLevels ?? [];
 
   const [panelLevel, setPanelLevel] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const [isInitialScrollDone, setIsInitialScrollDone] = useState(false);
+  const [selectedColor, setSelectedColor] = useState<"w" | "b" | "random">(
+    "random",
+  );
   const mapScrollRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const currentNodeRef = useRef<HTMLButtonElement | null>(null);
@@ -90,19 +95,7 @@ export default function BotLobby() {
     }>;
   }, [nodes]);
 
-  const unlockedNodeIndex = useMemo(
-    () => nodes.findIndex((n) => n.level === unlockedLevel),
-    [nodes, unlockedLevel],
-  );
-
   const svgPath = useMemo(() => buildSvgPath(nodes), [nodes]);
-  const progressPath = useMemo(
-    () =>
-      unlockedNodeIndex > 0
-        ? buildSvgPath(nodes.slice(0, unlockedNodeIndex + 1))
-        : "",
-    [nodes, unlockedNodeIndex],
-  );
   const scrollToCurrentNode = useCallback(() => {
     const target = nodeRefs.current.get(unlockedLevel);
     if (!target || !mapScrollRef.current) return;
@@ -141,11 +134,11 @@ export default function BotLobby() {
     dispatch(resetBotGame());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (gameId && gameStatus === "playing") {
-      navigate(`/play/bot/game/${gameId}`);
-    }
-  }, [gameId, gameStatus, navigate]);
+  // useEffect(() => {
+  //   if (gameId && gameStatus === "playing") {
+  //     navigate(`/play/bot/game/${gameId}`);
+  //   }
+  // }, [gameId, gameStatus, navigate]);
 
   useEffect(() => {
     if (isInitialScrollDone || nodes.length === 0) return;
@@ -173,14 +166,16 @@ export default function BotLobby() {
 
   const handleNodeClick = useCallback(
     (level: number) => {
-      if (level > unlockedLevel) return;
+      // Allow gate levels through even if ahead of unlockedLevel
+      const isGate = GATE_LEVELS.has(level);
+      if (level > unlockedLevel && !isGate) return;
       setPanelLevel((prev) => (prev === level ? null : level));
     },
     [unlockedLevel],
   );
 
   const handleStart = useCallback(
-    async (selectedColor: "w" | "b" | "random") => {
+    async (color: "w" | "b" | "random") => {
       if (panelLevel === null) return;
       setStarting(true);
       try {
@@ -191,7 +186,7 @@ export default function BotLobby() {
         }
         socket.emit("startBotGame", {
           level: panelLevel,
-          color: selectedColor,
+          color: color,
         });
       } catch {
         setStarting(false);
@@ -200,14 +195,63 @@ export default function BotLobby() {
     [panelLevel],
   );
 
+  const handleSelect = (color: "w" | "b" | "random") => {
+    setSelectedColor(color);
+  };
+
+  const handleClose = useCallback(() => {
+    setPanelLevel(null);
+    setStarting(false);
+    if (searchParams.get("open")) {
+      navigate("/play/bot", { replace: true });
+    }
+  }, [navigate, searchParams]);
+
   const handleContinue = useCallback(() => {
-    if (!resumePrompt) return;
-    socket.emit("continueBotGame", { gameId: resumePrompt.gameId });
+    if (!resumePrompt || !panelLevel) return;
+    socket.emit("continueBotGame", {
+      gameId: resumePrompt.gameId,
+    });
     navigate(`/play/bot/game/${resumePrompt.gameId}`);
-  }, [resumePrompt, navigate]);
+  }, [resumePrompt, navigate, panelLevel]);
+
+  const restart = useCallback(() => {
+    if (!resumePrompt || !panelLevel) return;
+    socket.emit("restartBotGame", {
+      gameId: resumePrompt.gameId,
+      color: selectedColor,
+      level: resumePrompt.level,
+    });
+    // navigate(`/play/bot/game/${resumePrompt.gameId}`);
+  }, [resumePrompt, panelLevel, selectedColor]);
 
   const panelTier =
     panelLevel !== null ? TIERS[tierForLevel(panelLevel)] : null;
+  const isSkipPanel =
+    panelLevel !== null &&
+    GATE_LEVELS.has(panelLevel) &&
+    panelLevel > unlockedLevel;
+
+  useEffect(() => {
+    if (!isInitialScrollDone) return;
+
+    const levelParam = searchParams.get("level");
+    const openParam = searchParams.get("open");
+
+    if (!levelParam || openParam !== "true") return;
+
+    const level = parseInt(levelParam);
+    if (isNaN(level)) return;
+
+    const isGate = TIERS.some((t) => t.range[0] === level);
+    const isAccessible = level <= unlockedLevel || isGate;
+
+    if (!isAccessible) return;
+
+    setTimeout(() => {
+      setPanelLevel(level);
+    }, 0);
+  }, [isInitialScrollDone, searchParams, unlockedLevel, navigate]);
 
   return (
     <div className="relative h-screen overflow-hidden pt-10 sm:pt-15">
@@ -292,9 +336,9 @@ export default function BotLobby() {
             nodes={nodes}
             tierSections={tierSections}
             svgPath={svgPath}
-            progressPath={progressPath}
             fullHeight={fullHeight}
             unlockedLevel={unlockedLevel}
+            completedLevels={completedLevels}
             panelLevel={panelLevel}
             onNodeClick={handleNodeClick}
             setNodeRef={setNodeRef}
@@ -309,17 +353,20 @@ export default function BotLobby() {
 
       <GameStartPanel
         level={panelLevel}
-        tierName={panelTier?.name ?? ""}
+        tier={panelTier}
+        isSkipGate={isSkipPanel}
         onStart={handleStart}
-        onClose={() => setPanelLevel(null)}
+        onClose={handleClose}
         starting={starting}
+        selectedColor={selectedColor}
+        onSelect={handleSelect}
       />
 
       <ResumePrompt
         level={resumePrompt?.level ?? null}
         open={!!resumePrompt}
         onContinue={handleContinue}
-        onStartFresh={() => dispatch(resetBotGame())}
+        onStartFresh={restart}
       />
     </div>
   );

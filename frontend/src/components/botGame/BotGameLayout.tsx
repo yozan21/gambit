@@ -1,7 +1,7 @@
 import { useState, useEffect, memo } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { socket } from "@/services/socket";
+import { disconnectSocket, socket } from "@/services/socket";
 import { useAppDispatch, useAppSelector } from "@/hooks/dispatch";
 import {
   promotionCancelled,
@@ -24,6 +24,7 @@ const BotGameLayout = memo(function () {
   const pendingPromotion = useAppSelector((s) => s.botChess.pendingPromotion);
   const gameId = useAppSelector((s) => s.botChess.gameId);
   const moves = useAppSelector((s) => s.botChess.moves);
+  const level = useAppSelector((s) => s.botChess.level);
   const me = useAppSelector((s) => s.botChess.me);
   const bot = useAppSelector((s) => s.botChess.bot);
   const winner = useAppSelector((s) => s.botChess.winner);
@@ -33,6 +34,8 @@ const BotGameLayout = memo(function () {
 
   const [viewingMoveIndex, setViewingMoveIndex] = useState<number | null>(null);
   const [gameOverModalOpen, setGameOverModalOpen] = useState(false);
+
+  const playerColor = me?.color || "w";
 
   useEffect(() => {
     if (gameStatus !== "ended" || !result) return;
@@ -75,7 +78,13 @@ const BotGameLayout = memo(function () {
   };
 
   const handleHint = () => {
-    if (!gameId || isBotThinking || hintsRemaining <= 0) return;
+    if (!gameId || isBotThinking || hintsRemaining < 0) return;
+    // If hints are exhausted, gate behind an ad
+    if (hintsRemaining === 0) {
+      socket.emit("requestAdHint", { gameId });
+      return;
+    }
+
     dispatch(hintRequested());
     socket.emit("requestHint", { gameId });
   };
@@ -86,13 +95,18 @@ const BotGameLayout = memo(function () {
     setGameOverModalOpen(false);
   };
 
-  // Toolbar Restart — only reachable during clean active play (gated in
+  // Toolbar Reset — only reachable during clean active play (gated in
   // BotGameControls), so the game is always guaranteed to still exist
   // server-side here.
-  const handleRestart = () => {
+  const handleReset = () => {
     setGameOverModalOpen(false);
+    if (winner === playerColor) {
+      disconnectSocket();
+      navigate(`/play/bot?level=${level + 1}&open=true`);
+      return;
+    }
     if (!gameId) return;
-    socket.emit("restartBotGame", { gameId });
+    socket.emit("resetBotGame", { gameId, level });
   };
 
   // Safe at any time — does NOT tell the server to abandon anything. The
@@ -100,27 +114,24 @@ const BotGameLayout = memo(function () {
   // continueBotGame via useRestoreBotGame and picks it back up.
   const handleHome = () => {
     setGameOverModalOpen(false);
-    dispatch(resetBotGame());
+    disconnectSocket();
     navigate("/play/bot");
+    // dispatch(resetBotGame());
   };
 
-  // Bot ended it (isStalled) -> game's still alive -> restart in place.
-  // Player's own move ended it -> server already deleted that game ->
-  // nothing to restart against, route to the lobby instead (a freshly
-  // unlocked level is waiting there if you won).
-  const handlePlayAgain = () => {
+  // Called only when player ends the game through checkmate
+  const handlePlayAgain = (color: "w" | "b" | "random") => {
     setGameOverModalOpen(false);
-    if (isStalled && gameId) {
-      socket.emit("restartBotGame", { gameId });
+    if (gameId) {
+      socket.emit("restartBotGame", { gameId, color, level });
       return;
     }
     dispatch(resetBotGame());
-    navigate("/play/bot");
   };
 
   const playAgainLabel = isStalled
     ? "Try Again"
-    : winner === me?.color
+    : winner === playerColor
       ? "Next Level"
       : "Play Again";
 
@@ -176,7 +187,7 @@ const BotGameLayout = memo(function () {
                 playAgainLabel={playAgainLabel}
                 onHint={handleHint}
                 onUndo={handleUndo}
-                onRestart={handleRestart}
+                onReset={handleReset}
                 onHome={handleHome}
                 onPlayAgain={handlePlayAgain}
               />
@@ -187,18 +198,18 @@ const BotGameLayout = memo(function () {
 
       <PromotionModal
         isOpen={pendingPromotion !== null}
-        color={me?.color || "w"}
+        color={playerColor}
         onSelect={handlePromotionSelect}
       />
       <GameOverModal
         isOpen={gameOverModalOpen}
         result={result || "draw"}
         winner={winner}
-        myColor={me?.color || "w"}
+        myColor={playerColor}
         playAgainLabel={playAgainLabel}
         onClose={() => setGameOverModalOpen(false)}
         onHome={handleHome}
-        onPlayAgain={handlePlayAgain}
+        onPlayAgain={handleReset}
       />
     </>
   );

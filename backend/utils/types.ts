@@ -32,6 +32,12 @@ export interface OAuthPayload {
   isGoogleTemp: boolean;
 }
 
+export interface AdPAyload {
+  userId: string;
+  gameId: string;
+  type: string;
+}
+
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -209,7 +215,7 @@ export interface ServerToClientEvents {
     result: Result;
     winner: PlayerColor | null;
     message: string;
-    levelUnlocked?: number;
+    levelCompleted?: number;
   }) => void;
 
   botGameResume: (data: {
@@ -220,7 +226,22 @@ export interface ServerToClientEvents {
     level: number;
     hintsRemaining: number;
     color: PlayerColor;
+    status: "ongoing" | "check" | "ended";
   }) => void;
+
+  botGameRestored: (data: {
+    gameId: string;
+    fen: string;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+    level: number;
+    hintsRemaining: number;
+    color: PlayerColor;
+    username: string;
+    status: "ongoing" | "check" | "ended";
+  }) => void;
+
+  adSessionReady: (data: { gameId: string; adToken: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -244,13 +265,20 @@ export interface ClientToServerEvents {
     promotion?: "q" | "r" | "n" | "b";
   }) => void;
   requestHint: (data: { gameId: string }) => void;
+  requestAdHint: (data: { gameId: string }) => void;
   grantAdHint: (data: {
     gameId: string;
     adToken?: string; // From ad provider
   }) => void;
   undoMove: (data: { gameId: string }) => void;
-  restartBotGame: (data: { gameId: string }) => void;
+  restartBotGame: (data: {
+    gameId: string;
+    color: "w" | "b" | "random";
+    level: number;
+  }) => void;
+  resetBotGame: (data: { gameId: string; level: number }) => void;
   continueBotGame: (data: { gameId: string }) => void;
+  restoreBotGame: (data: { gameId: string }) => void;
 }
 
 export type TypedSocket = Socket<

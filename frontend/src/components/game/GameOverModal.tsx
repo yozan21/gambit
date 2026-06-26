@@ -1,5 +1,13 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, RotateCcw, Home, Award, X } from "lucide-react";
+import {
+  Trophy,
+  RotateCcw,
+  Home,
+  Award,
+  X,
+  ChevronsRight,
+  Waypoints,
+} from "lucide-react";
 import type { GameResult, PlayerColor } from "../../types/socket.types";
 import { Button } from "../ui/button";
 
@@ -11,8 +19,8 @@ interface GameOverModalProps {
   onClose: () => void;
   onHome: () => void;
   onPlayAgain: () => void;
+  playAgainLabel: string; // NEW — defaults to "Play Again"
   onRematch?: () => void;
-  playAgainLabel?: string; // NEW — defaults to "Play Again"
 }
 
 export default function GameOverModal({
@@ -22,8 +30,8 @@ export default function GameOverModal({
   myColor,
   onClose,
   onHome,
-  onPlayAgain,
   onRematch,
+  onPlayAgain,
   playAgainLabel = "Play Again", // NEW
 }: GameOverModalProps) {
   const isWin = winner === myColor;
@@ -136,7 +144,11 @@ export default function GameOverModal({
                   boxShadow: "var(--shadow-glow)",
                 }}
               >
-                <RotateCcw className="h-5 w-5" />
+                {playAgainLabel === "Play Again" ? (
+                  <RotateCcw className="h-5 w-5" />
+                ) : (
+                  <ChevronsRight className="h-5 w-5" />
+                )}
                 {playAgainLabel}
               </Button>
 
@@ -168,8 +180,17 @@ export default function GameOverModal({
                     color: "var(--text-secondary)",
                   }}
                 >
-                  <Home className="h-5 w-5" />
-                  Home
+                  {playAgainLabel === "Play Again" ? (
+                    <>
+                      <Home className="h-5 w-5" />
+                      Home
+                    </>
+                  ) : (
+                    <>
+                      <Waypoints className="h-5 w-5" />
+                      Back to map
+                    </>
+                  )}
                 </Button>
               </div>
             </motion.div>{" "}

@@ -110,6 +110,7 @@ export interface ServerToClientEvents {
     level: number;
     hintsRemaining: number;
     color: PlayerColor;
+    status: BoardStatus;
   }) => void;
 
   botMoveMade: (data: {
@@ -146,6 +147,8 @@ export interface ServerToClientEvents {
 
   hintGranted: (data: { hintsRemaining: number }) => void;
 
+  adSessionReady: (data: { gameId: string; adToken: string }) => void;
+
   undoConfirmed: (data: {
     fen: string;
     moves: MoveEntry[];
@@ -164,7 +167,19 @@ export interface ServerToClientEvents {
     result: GameResult;
     winner: PlayerColor | null;
     message: string;
-    levelUnlocked?: number;
+    levelCompleted?: number;
+  }) => void;
+
+  botGameRestored: (data: {
+    gameId: string;
+    fen: string;
+    moves: MoveEntry[];
+    turn: PlayerColor;
+    level: number;
+    hintsRemaining: number;
+    color: PlayerColor;
+    username: string;
+    status: BoardStatus;
   }) => void;
 }
 
@@ -197,11 +212,18 @@ export interface ClientToServerEvents {
 
   requestHint: (data: { gameId: string }) => void;
 
+  requestAdHint: (date: { gameId: string }) => void;
+
   grantAdHint: (data: { gameId: string; adToken?: string }) => void;
 
   undoMove: (data: { gameId: string }) => void;
 
-  restartBotGame: (data: { gameId: string }) => void;
-
+  restartBotGame: (data: {
+    gameId: string;
+    color: "w" | "b" | "random";
+    level: number;
+  }) => void;
+  resetBotGame: (data: { gameId: string; level: number }) => void;
   continueBotGame: (data: { gameId: string }) => void;
+  restoreBotGame: (data: { gameId: string }) => void;
 }

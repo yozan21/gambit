@@ -1,6 +1,7 @@
 // components/botLobby/ResumePrompt.tsx
 import { motion, AnimatePresence } from "framer-motion";
 import { Swords } from "lucide-react";
+import { memo } from "react";
 
 interface ResumePromptProps {
   level: number | null;
@@ -9,7 +10,7 @@ interface ResumePromptProps {
   onStartFresh: () => void;
 }
 
-export function ResumePrompt({
+function ResumePromptFn({
   level,
   open,
   onContinue,
@@ -44,20 +45,16 @@ export function ResumePrompt({
                 Unfinished Game
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                You have a game in progress at Level {level}. Continue or start
-                fresh?
+                You have a game in progress at Level {level}. Continue or
+                restart?
               </p>
             </div>
             <div className="flex w-full flex-col gap-2">
               <button
                 onClick={onContinue}
-                className="cursor-pointer rounded-lg py-2.5 text-sm font-semibold transition-all"
-                style={{
-                  background: "var(--gold)",
-                  color: "var(--primary-foreground)",
-                }}
+                className="cursor-pointer rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-all"
               >
-                Continue Game
+                Continue
               </button>
               <button
                 onClick={onStartFresh}
@@ -67,7 +64,7 @@ export function ResumePrompt({
                   border: "1px solid var(--border-default)",
                 }}
               >
-                Start Fresh
+                Restart
               </button>
             </div>
           </motion.div>
@@ -76,3 +73,5 @@ export function ResumePrompt({
     </AnimatePresence>
   );
 }
+
+export const ResumePrompt = memo(ResumePromptFn);

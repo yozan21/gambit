@@ -1,14 +1,25 @@
-// components/botLobby/GameStartPanel.tsx
-import { useState } from "react";
+import { memo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Info, ChevronRight, X, ChessKing, Dice5 } from "lucide-react";
+import {
+  Play,
+  Info,
+  ChevronRight,
+  X,
+  ChessKing,
+  Zap,
+  Dices,
+} from "lucide-react";
+import type { Tier } from "@/utils/tiers";
 
 interface GameStartPanelProps {
   level: number | null;
-  tierName: string;
+  tier: Tier | null;
+  isSkipGate?: boolean;
   onStart: (color: "w" | "b" | "random") => void;
+  onSelect: (color: "w" | "b" | "random") => void;
   onClose: () => void;
   starting: boolean;
+  selectedColor: "w" | "b" | "random";
 }
 
 const COLORS = [
@@ -22,7 +33,7 @@ const COLORS = [
   {
     id: "random" as const,
     label: "Random",
-    icon: <Dice5 />,
+    icon: <Dices />,
     description: "Let fate decide",
     advantage: "Surprise",
   },
@@ -35,26 +46,27 @@ const COLORS = [
   },
 ];
 
-export function GameStartPanel({
+function GameStartPanelFn({
   level,
-  tierName,
+  tier,
+  isSkipGate,
   onStart,
+  onSelect,
   onClose,
   starting,
+  selectedColor,
 }: GameStartPanelProps) {
-  const [selectedColor, setSelectedColor] = useState<"w" | "b" | "random">(
-    "random",
-  );
   const [showTooltip, setShowTooltip] = useState(false);
 
-  const open = level !== null;
+  const open = level !== null && tier !== null;
+  const primary = tier?.theme.primary ?? "var(--gold)";
+  const primarySubtle = `${primary}22`;
+  const primaryBorder = `${primary}55`;
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop — visually separates modal from map, intentionally
-              NOT clickable to close (per spec: only X / Close button). */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -72,8 +84,8 @@ export function GameStartPanel({
             <div
               className="glass-card relative flex w-full max-w-sm flex-col gap-5 p-5 lg:w-80"
               style={{
-                borderLeft: "1px solid var(--border-gold)",
-                boxShadow: "var(--shadow-glass), var(--shadow-glow)",
+                borderLeft: `1px solid ${primaryBorder}`,
+                boxShadow: `var(--shadow-glass), 0 0 24px ${primary}22`,
               }}
             >
               <button
@@ -83,27 +95,59 @@ export function GameStartPanel({
                 <X className="h-4 w-4" />
               </button>
 
-              <div>
+              {isSkipGate ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      style={{ background: primarySubtle, color: primary }}
+                    >
+                      <Zap className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div
+                        className="text-xs font-semibold tracking-wide uppercase"
+                        style={{ color: primary }}
+                      >
+                        Tier Skip Challenge
+                      </div>
+                      <h3 className="font-display text-lg font-bold text-foreground">
+                        {tier?.name}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div
+                    className="rounded-lg px-3 py-2 text-xs"
+                    style={{
+                      background: primarySubtle,
+                      border: `1px solid ${primaryBorder}`,
+                      color: primary,
+                    }}
+                  >
+                    ⚡ Beat this level to jump in{" "}
+                    <strong>{tier?.name} tier</strong> and skip all previous
+                    levels.
+                  </div>
+                </div>
+              ) : (
                 <div className="flex items-center gap-2">
                   <div
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold"
-                    style={{
-                      background: "var(--gold-subtle)",
-                      color: "var(--gold)",
-                    }}
+                    style={{ background: primarySubtle, color: primary }}
                   >
                     {level}
                   </div>
                   <div>
                     <div className="text-xs tracking-wide text-muted-foreground uppercase">
-                      {tierName}
+                      {tier?.name}
                     </div>
                     <h3 className="font-display text-lg font-bold text-foreground">
                       Level {level}
                     </h3>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="divider" />
 
@@ -146,21 +190,29 @@ export function GameStartPanel({
                     <motion.button
                       key={color.id}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedColor(color.id)}
+                      onClick={() => onSelect(color.id)}
                       className="flex w-full cursor-pointer items-center gap-3 rounded-lg p-3 text-left transition-all"
                       style={{
                         background:
                           selectedColor === color.id
-                            ? "var(--gold-subtle)"
+                            ? primarySubtle
                             : "var(--bg-elevated)",
                         border:
                           selectedColor === color.id
-                            ? "1.5px solid var(--gold)"
+                            ? `1.5px solid ${primary}`
                             : "1px solid var(--border-default)",
                       }}
                     >
                       <span
-                        className={`text-2xl ${color.id === "b" ? "text-muted-foreground" : color.id === "random" ? "text-accent-foreground" : "text-foreground"}`}
+                        className="text-2xl"
+                        style={{
+                          color:
+                            color.id === "b"
+                              ? "var(--muted-foreground)"
+                              : color.id === "random"
+                                ? primary
+                                : "var(--foreground)",
+                        }}
                       >
                         {color.icon}
                       </span>
@@ -170,7 +222,7 @@ export function GameStartPanel({
                           style={{
                             color:
                               selectedColor === color.id
-                                ? "var(--gold-light)"
+                                ? primary
                                 : "var(--text-secondary)",
                           }}
                         >
@@ -185,11 +237,11 @@ export function GameStartPanel({
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           className="flex h-5 w-5 items-center justify-center rounded-full"
-                          style={{ background: "var(--gold)" }}
+                          style={{ background: primary }}
                         >
                           <ChevronRight
                             className="h-3 w-3"
-                            style={{ color: "var(--primary-foreground)" }}
+                            style={{ color: "var(--bg-base)" }}
                           />
                         </motion.div>
                       )}
@@ -198,9 +250,7 @@ export function GameStartPanel({
                 </div>
               </div>
 
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+              <div
                 className="rounded-lg p-3"
                 style={{
                   background: "var(--bg-elevated)",
@@ -213,12 +263,12 @@ export function GameStartPanel({
                   </span>
                   <span
                     className="text-xs font-medium"
-                    style={{ color: "var(--gold)" }}
+                    style={{ color: primary }}
                   >
                     {COLORS.find((c) => c.id === selectedColor)?.advantage}
                   </span>
                 </div>
-              </motion.div>
+              </div>
 
               <div className="flex flex-col gap-2">
                 <motion.button
@@ -228,10 +278,9 @@ export function GameStartPanel({
                   disabled={starting}
                   className="font-display flex cursor-pointer items-center justify-center gap-2 rounded-lg py-3.5 text-center text-base font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60"
                   style={{
-                    background:
-                      "linear-gradient(135deg, #e2c46a 0%, #c9a84c 100%)",
+                    background: `linear-gradient(135deg, ${primary}dd 0%, ${primary}aa 100%)`,
                     color: "var(--bg-base)",
-                    boxShadow: "var(--shadow-glow-md)",
+                    boxShadow: `0 0 20px ${primary}44`,
                   }}
                 >
                   {starting ? (
@@ -246,6 +295,11 @@ export function GameStartPanel({
                         className="h-4 w-4 rounded-full border-2 border-current border-t-transparent"
                       />
                       Starting...
+                    </>
+                  ) : isSkipGate ? (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Challenge
                     </>
                   ) : (
                     <>
@@ -268,7 +322,7 @@ export function GameStartPanel({
               </div>
 
               <p className="text-center text-xs text-muted-foreground">
-                💡 3 free hints • Watch ads for more
+                💡 5 free hints
               </p>
             </div>
           </motion.div>
@@ -277,3 +331,5 @@ export function GameStartPanel({
     </AnimatePresence>
   );
 }
+
+export const GameStartPanel = memo(GameStartPanelFn);

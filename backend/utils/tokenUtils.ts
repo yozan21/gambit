@@ -1,5 +1,10 @@
 import jwt from "jsonwebtoken";
-import type { JwtPayload, OAuthPayload, TokenPair } from "../utils/types.js";
+import type {
+  AdPAyload,
+  JwtPayload,
+  OAuthPayload,
+  TokenPair,
+} from "../utils/types.js";
 
 // Helper to sign tokens asynchronously
 const signAsync = (
@@ -86,5 +91,37 @@ export const verifyOAuthToken = async (
       if (err) return reject(err);
       resolve(decoded as OAuthPayload);
     });
+  });
+};
+
+// 6. Generate Ad Token
+export const generateAdToken = async (payload: AdPAyload): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    // Passing a callback as the 4th argument offloads it to the thread pool
+    jwt.sign(
+      payload,
+      process.env.JWT_AD_SECRET!,
+      { expiresIn: "1m" },
+      (err, token) => {
+        if (err) return reject(err);
+        resolve(token!);
+      },
+    );
+  });
+};
+
+// 5. Asynchronous Ad Token Verification
+export const verifyAdToken = async (token: string): Promise<AdPAyload> => {
+  return new Promise((resolve, reject) => {
+    // Passing a callback as the 3rd argument makes it asynchronous
+    jwt.verify(
+      token,
+      process.env.JWT_AD_SECRET!,
+      { clockTolerance: 5 },
+      (err, decoded) => {
+        if (err) return reject(err);
+        resolve(decoded as AdPAyload);
+      },
+    );
   });
 };

@@ -11,14 +11,13 @@ export default function BotGame() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
 
-  const reduxGameId = useAppSelector((s) => s.botChess.gameId);
-  const gameStatus = useAppSelector((s) => s.botChess.gameStatus);
-
-  useRestoreBotGame(gameId);
+  const { gameId: reduxGameId, gameStatus } = useAppSelector((s) => s.botChess);
 
   useEffect(() => {
     if (!gameId) navigate("/play/bot", { replace: true });
   }, [gameId, navigate]);
+
+  useRestoreBotGame(gameId);
 
   if (!gameId) return <LoadingScreen />;
 

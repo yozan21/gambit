@@ -105,6 +105,7 @@ async function buildAppRaw(app: FastifyInstance) {
         },
       },
       unlockedBotLevel: { type: "number" },
+      completedBotLevels: { type: "array" },
 
       games: { type: "array" },
       createdAt: { type: "string", format: "date-time" },

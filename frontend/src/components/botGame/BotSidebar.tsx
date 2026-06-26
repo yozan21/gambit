@@ -20,9 +20,9 @@ interface BotSidebarProps {
   playAgainLabel: string;
   onHint: () => void;
   onUndo: () => void;
-  onRestart: () => void;
+  onReset: () => void;
   onHome: () => void;
-  onPlayAgain: () => void;
+  onPlayAgain: (color: "w" | "b" | "random") => void;
 }
 
 const BotSidebar = React.memo(function ({
@@ -40,7 +40,7 @@ const BotSidebar = React.memo(function ({
   playAgainLabel,
   onHint,
   onUndo,
-  onRestart,
+  onReset,
   onHome,
   onPlayAgain,
 }: BotSidebarProps) {
@@ -89,7 +89,7 @@ const BotSidebar = React.memo(function ({
           playAgainLabel={playAgainLabel}
           onHint={onHint}
           onUndo={onUndo}
-          onRestart={onRestart}
+          onReset={onReset}
           onHome={onHome}
           onPlayAgain={onPlayAgain}
         />

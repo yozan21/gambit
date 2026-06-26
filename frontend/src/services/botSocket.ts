@@ -12,9 +12,14 @@ import {
   hintDenied,
   hintGranted,
   promotionRequested,
+  adSessionReady,
+  botGameEnded,
+  botGameRestored,
 } from "../store/bot/botSlice";
 import { playIllegalSound, playSound } from "../utils/sound";
 import type { AppDispatch, RootState } from "../store";
+import { adService } from "./ads";
+import { patchUser } from "@/store/auth/authSlice";
 
 /**
  * Registers bot-mode socket listeners. Call once alongside registerSocketListeners.
@@ -23,9 +28,11 @@ import type { AppDispatch, RootState } from "../store";
 export function registerBotSocketListeners({
   dispatch,
   getState,
+  navigate,
 }: {
   dispatch: AppDispatch;
   getState: () => RootState;
+  navigate: (path: string) => void;
 }) {
   socket.on("botGameCreated", ({ gameId, color, level, hintsRemaining }) => {
     const username = getState().auth.user?.username ?? "You";
@@ -33,11 +40,12 @@ export function registerBotSocketListeners({
     dispatch(
       botGameCreated({ gameId, color, level, hintsRemaining, username }),
     );
+    navigate(`/play/bot/game/${gameId}`);
   });
 
   socket.on(
     "botGameResume",
-    ({ gameId, fen, moves, turn, level, hintsRemaining, color }) => {
+    ({ gameId, fen, moves, turn, level, hintsRemaining, color, status }) => {
       // Server found an in-progress (or just-restored) game.
       // We treat this the same whether it's a fresh "you have an unfinished game" prompt
       // or a direct resume after continueBotGame — the lobby decides which UI to show
@@ -57,12 +65,42 @@ export function registerBotSocketListeners({
             hintsRemaining,
             color,
             username,
+            status,
           }),
         );
       } else {
         // First time we're hearing about this — show the resume prompt
         dispatch(botGameResumePrompted({ gameId, level, color }));
       }
+    },
+  );
+
+  socket.on(
+    "botGameRestored",
+    ({
+      gameId,
+      color,
+      fen,
+      moves,
+      turn,
+      level,
+      hintsRemaining,
+      username,
+      status,
+    }) => {
+      dispatch(
+        botGameRestored({
+          gameId,
+          color,
+          fen,
+          moves,
+          turn,
+          level,
+          hintsRemaining,
+          username,
+          status,
+        }),
+      );
     },
   );
 
@@ -99,10 +137,28 @@ export function registerBotSocketListeners({
     playSound("end");
   });
 
-  socket.on("botGameOver", ({ message, levelUnlocked }) => {
-    toast.info(message);
-    if (levelUnlocked) {
-      toast.success(`Level ${levelUnlocked} unlocked! 🎉`);
+  socket.on("botGameOver", ({ result, winner, levelCompleted }) => {
+    const completedBotLevels = getState().auth.user?.completedBotLevels ?? [];
+    const unlockedLevel = getState().auth.user?.unlockedBotLevel;
+
+    if (levelCompleted) {
+      toast.success(`Level ${levelCompleted} won! 🎉`);
+    }
+    dispatch(botGameEnded({ result, winner }));
+    if (
+      levelCompleted &&
+      !completedBotLevels.includes(levelCompleted) &&
+      unlockedLevel
+    ) {
+      const newUnlockedLevel = levelCompleted + 1;
+      dispatch(
+        patchUser({
+          completedBotLevels: [...completedBotLevels, levelCompleted],
+          ...(newUnlockedLevel > unlockedLevel && {
+            unlockedBotLevel: newUnlockedLevel,
+          }),
+        }),
+      );
     }
   });
 
@@ -126,6 +182,11 @@ export function registerBotSocketListeners({
 
   socket.on("hintGranted", ({ hintsRemaining }) => {
     dispatch(hintGranted({ hintsRemaining }));
+  });
+
+  socket.on("adSessionReady", async ({ gameId, adToken }) => {
+    dispatch(adSessionReady({ adToken }));
+    await adService.showRewardedAd(gameId, adToken);
   });
 
   socket.on("undoConfirmed", ({ fen, moves, turn }) => {

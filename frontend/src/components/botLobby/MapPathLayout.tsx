@@ -1,6 +1,6 @@
 // components/botLobby/MapPathLayer.tsx
 import { SVG_WIDTH, type PathNode } from "@/utils/pathLayout";
-import { getTierForLevel, TIERS, type Tier } from "@/utils/tiers";
+import { GATE_LEVELS, getTierForLevel, TIERS, type Tier } from "@/utils/tiers";
 import { PathNodeButton } from "@/components/botLobby/PathNodeButton";
 import { useMemo } from "react";
 
@@ -17,9 +17,9 @@ interface MapPathLayerProps {
   nodes: PathNode[];
   tierSections: TierSection[];
   svgPath: string;
-  progressPath: string;
   fullHeight: number;
   unlockedLevel: number;
+  completedLevels: number[];
   panelLevel: number | null;
   onNodeClick: (level: number) => void;
   setNodeRef: (level: number) => (el: HTMLButtonElement | null) => void;
@@ -57,21 +57,42 @@ function getTierBridges(nodes: PathNode[]) {
 
   return bridges;
 }
-const GATE_LEVELS = new Set(TIERS.map((t) => t.range[0]));
+
+function getProgressSegments(nodes: PathNode[], unlockedLevel: number) {
+  const completedNodes = nodes.filter((n) => n.level <= unlockedLevel);
+  if (completedNodes.length < 2) return [];
+
+  const segments: { path: string; color: string }[] = [];
+
+  for (let i = 1; i < completedNodes.length; i++) {
+    const prev = completedNodes[i - 1];
+    const curr = completedNodes[i];
+    const midY = (prev.y + curr.y) / 2;
+    segments.push({
+      path: `M ${prev.x} ${prev.y} C ${prev.x} ${midY}, ${curr.x} ${midY}, ${curr.x} ${curr.y}`,
+      color: TIERS[curr.tierIndex].theme.primary,
+    });
+  }
+
+  return segments;
+}
 
 export function MapPathLayer({
   nodes,
   tierSections,
   svgPath,
-  progressPath,
   fullHeight,
   unlockedLevel,
+  completedLevels,
   panelLevel,
   onNodeClick,
   setNodeRef,
 }: MapPathLayerProps) {
   const bridges = useMemo(() => getTierBridges(nodes), [nodes]);
-  console.log(GATE_LEVELS);
+  const progressSegments = useMemo(
+    () => getProgressSegments(nodes, unlockedLevel),
+    [nodes, unlockedLevel],
+  );
 
   return (
     <div
@@ -125,15 +146,17 @@ export function MapPathLayer({
         />
 
         {/* Progress path */}
-        {progressPath && (
+        {progressSegments.map((seg, i) => (
           <path
-            d={progressPath}
+            key={i}
+            d={seg.path}
             fill="none"
-            stroke="var(--gold-muted)"
+            stroke={seg.color}
             strokeWidth={3}
             strokeLinecap="round"
+            opacity={0.7}
           />
-        )}
+        ))}
 
         {/* Bridge segments — overpaint base path with tier-to-tier gradient */}
         {bridges.map(({ id, from, to }) => (
@@ -190,7 +213,7 @@ export function MapPathLayer({
                   isLocked={
                     node.level > unlockedLevel && !GATE_LEVELS.has(node.level)
                   }
-                  isCompleted={node.level < unlockedLevel} // keep as-is for now; swap to completedLevels.has() once backend ships
+                  isCompleted={completedLevels.includes(node.level)}
                   isFrontier={node.level === unlockedLevel}
                   isGate={
                     GATE_LEVELS.has(node.level) && node.level > unlockedLevel

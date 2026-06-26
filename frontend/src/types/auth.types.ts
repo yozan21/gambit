@@ -6,6 +6,7 @@ export interface AuthUser {
   avatar?: string;
   elo: number;
   unlockedBotLevel: number;
+  completedBotLevels: number[];
   stats: {
     gamesPlayed: number;
     wins: number;

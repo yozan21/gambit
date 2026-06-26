@@ -128,6 +128,7 @@ registerSocketListeners({
 registerBotSocketListeners({
   dispatch: store.dispatch,
   getState: store.getState,
+  navigate: (path) => router.navigate(path),
 });
 
 createRoot(document.getElementById("root")!).render(

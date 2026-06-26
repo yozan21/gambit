@@ -31,6 +31,8 @@ export default class Game {
   public clocks: ClocksType;
   public timerCallback: TimerUpdateCallback;
   public activeTimer: NodeJS.Timeout | null = null;
+  public disconnectTimers: Map<string, ReturnType<typeof setTimeout>> =
+    new Map();
 
   constructor(id: string, timerCallback: TimerUpdateCallback, mode: GameMode) {
     this.id = id;

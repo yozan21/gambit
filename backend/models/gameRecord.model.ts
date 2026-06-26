@@ -21,6 +21,7 @@ export interface IGameRecord extends Document {
   history: string[];
   finalFen: string;
   duration: number;
+  boardStatus: "ongoing" | "check" | "ended";
   whiteRating: number;
   blackRating: number;
   whiteRatingChange: number;
@@ -49,6 +50,11 @@ const GameRecordSchema = new Schema<IGameRecord>(
     whitePlayer: { type: Schema.Types.ObjectId, ref: "User", default: null },
     blackPlayer: { type: Schema.Types.ObjectId, ref: "User", default: null },
     winner: { type: String, enum: ["w", "b", null], default: null },
+    status: {
+      type: String,
+      enum: ["in_progress", "completed", "abandoned"],
+      default: "completed",
+    },
     result: {
       type: String,
       required: true,
@@ -73,12 +79,20 @@ const GameRecordSchema = new Schema<IGameRecord>(
     history: [String],
     finalFen: { type: String, required: true },
     duration: { type: Number, required: true },
+    boardStatus: {
+      type: String,
+      enum: ["ongoing", "check", "ended"],
+      default: "ended",
+      required: true,
+    },
     whiteRating: { type: Number, required: true },
     blackRating: { type: Number, required: true },
     whiteRatingChange: { type: Number, required: true },
     blackRatingChange: { type: Number, required: true },
     startedAt: { type: Date, required: true },
     endedAt: { type: Date, required: true, default: Date.now },
+    hintsAllowed: { type: Number, default: 5 },
+    hintsUsed: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

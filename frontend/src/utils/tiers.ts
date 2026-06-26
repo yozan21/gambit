@@ -159,3 +159,5 @@ export function tierForLevel(level: number): number {
 export function getTierForLevel(level: number): Tier {
   return TIERS[tierForLevel(level)];
 }
+
+export const GATE_LEVELS = new Set(TIERS.map((t) => t.range[0]));

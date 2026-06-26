@@ -11,7 +11,7 @@ import { GameRecord } from "../models/gameRecord.model.js";
 import { User } from "../models/user.model.js";
 import { stockfishService } from "../services/stockFish.service.js";
 
-const FREE_HINTS = 3;
+const FREE_HINTS = 5;
 
 export default class BotGame {
   public id: string;
@@ -23,7 +23,7 @@ export default class BotGame {
   public moves: MoveEntry[];
   public history: string[];
   public phase: "active" | "ended";
-  public status: "ongoing" | "check" | "ended" | null;
+  public status: "ongoing" | "check" | "ended";
   public result: Result | null;
   public winner: PlayerColor | null;
   public startedAt: Date;
@@ -339,6 +339,7 @@ export default class BotGame {
     this.result = null;
     this.winner = null;
     this.hintsUsed = 0;
+    this.hintsAllowed = FREE_HINTS;
     this.startedAt = new Date();
     this.isBotThinking = false;
   }
@@ -430,7 +431,7 @@ export default class BotGame {
     const playerLost = this.winner === this.botColor;
 
     try {
-      await GameRecord.findOneAndUpdate(
+      const record = await GameRecord.findOneAndUpdate(
         { gameId: this.id },
         {
           $set: {
@@ -458,23 +459,26 @@ export default class BotGame {
             blackRatingChange: 0,
             botLevel: this.level,
             status,
+            boardStatus: this.status,
           },
         },
-        { upsert: true },
+        { upsert: true, new: true },
       );
 
-      if (status === "completed") {
+      if (status === "completed" && record) {
         await User.findByIdAndUpdate(this.player.userId, {
           $inc: {
             "stats.botGamesPlayed": 1,
             "stats.botWins": playerWon ? 1 : 0,
             "stats.botLosses": playerLost ? 1 : 0,
           },
-          ...(unlockLevel &&
-            playerWon && {
-              $max: { unlockedBotLevel: this.level + 1 },
-            }),
-          $push: { games: this.id },
+          ...(unlockLevel && {
+            $max: { unlockedBotLevel: this.level + 1 },
+          }),
+          ...(playerWon && {
+            $addToSet: { completedBotLevels: this.level },
+          }),
+          $push: { games: record._id },
         });
       }
     } catch (err) {

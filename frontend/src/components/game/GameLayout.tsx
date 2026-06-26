@@ -165,6 +165,7 @@ const GameLayout = memo(function () {
         onClose={() => setGameOverModalOpen(false)}
         onHome={handleHome}
         onPlayAgain={handlePlayAgain}
+        playAgainLabel="Play Again"
       />
     </>
   );

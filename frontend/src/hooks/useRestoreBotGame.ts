@@ -18,7 +18,7 @@ export function useRestoreBotGame(urlGameId: string | undefined) {
     (async () => {
       const ok = await connectSocket();
       if (!ok) return;
-      socket.emit("continueBotGame", { gameId: urlGameId });
+      socket.emit("restoreBotGame", { gameId: urlGameId });
     })();
   }, [urlGameId, reduxGameId, gameStatus]);
 }
