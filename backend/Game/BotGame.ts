@@ -461,6 +461,8 @@ export default class BotGame {
             botLevel: this.level,
             status,
             boardStatus: this.status,
+            hintsUsed: this.hintsUsed,
+            hintsAllowed: this.hintsAllowed,
           },
         },
         { upsert: true, new: true },
