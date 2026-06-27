@@ -102,7 +102,7 @@ export default function MemoryMonitor() {
     }
   };
 
-  const rss = data ? parseMB(data.rss) : 0;
+  const rss = data ? parseMB(data.nodeRss) : 0;
   const rssPct = Math.round((rss / MAX_MB) * 100);
 
   return (
