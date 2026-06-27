@@ -10,6 +10,7 @@ interface TierSection {
   firstNode: PathNode;
   lastNode: PathNode;
   sectionHeight: number;
+  minY: number;
 }
 
 interface MapPathLayerProps {
@@ -185,7 +186,7 @@ export function MapPathLayer({
           key={section.tier.id}
           className="absolute left-0"
           style={{
-            top: section.firstNode.y,
+            top: section.minY,
             width: svgWidth,
             height: section.sectionHeight,
           }}
@@ -198,7 +199,7 @@ export function MapPathLayer({
                 className="absolute"
                 style={{
                   left: node.x,
-                  top: node.y - section.firstNode.y,
+                  top: node.y - section.minY,
                   transform: "translate(-50%, -50%)",
                 }}
               >

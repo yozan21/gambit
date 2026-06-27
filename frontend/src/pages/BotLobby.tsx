@@ -92,6 +92,8 @@ export default function BotLobby() {
 
       const firstNode = tierNodes[0];
       const lastNode = tierNodes[tierNodes.length - 1];
+      const ys = tierNodes.map((n) => n.y);
+      const minY = Math.min(...ys); // ← always the top of the section
       const sectionHeight = lastNode.y - firstNode.y + NODE_SPACING + 40;
 
       return {
@@ -100,7 +102,8 @@ export default function BotLobby() {
         nodes: tierNodes,
         firstNode,
         lastNode,
-        sectionHeight,
+        minY, // ← new
+        sectionHeight: Math.abs(sectionHeight), // ← abs since can be negative after invert
       };
     }).filter(Boolean) as Array<{
       tier: (typeof TIERS)[0];
@@ -108,6 +111,7 @@ export default function BotLobby() {
       nodes: PathNode[];
       firstNode: PathNode;
       lastNode: PathNode;
+      minY: number;
       sectionHeight: number;
     }>;
   }, [nodes]);
@@ -301,21 +305,54 @@ export default function BotLobby() {
             msOverflowStyle: "none",
           }}
         >
+          {/* Tiers Background */}
+          <div
+            className="pointer-events-none absolute top-0 left-0 w-full"
+            style={{ height: fullHeight }}
+          >
+            {tierSections.map((section) => (
+              <div
+                key={`bg-${section.tier.id}`}
+                className="absolute inset-x-0"
+                style={{
+                  top: section.minY, // ← was section.firstNode.y
+                  height: section.sectionHeight,
+                }}
+              >
+                <TierBackground
+                  tier={section.tier}
+                  isActive={section.tierIndex === activeTierIndex}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Full-width layer — purely for sticky titles + the
+              IntersectionObserver markers. Spans the exact same scroll
+              range as the node column below via an explicit height, but as
+              a true viewport-width box, so "left-8" lands near the real
+              screen edge instead of the narrow path column's edge.
+              Hides on smaller screens */}
           {!isMobile && (
             <div
-              className="pointer-events-none absolute top-0 left-0 w-full"
+              className="pointer-events-none absolute top-0 left-0 z-20 w-full"
               style={{ height: fullHeight }}
             >
               {tierSections.map((section) => (
                 <div
-                  key={`bg-${section.tier.id}`}
+                  key={`title-${section.tier.id}`}
+                  data-tier-index={section.tierIndex}
                   className="absolute inset-x-0"
                   style={{
-                    top: section.firstNode.y,
+                    top: section.minY, // ← was section.firstNode.y
                     height: section.sectionHeight,
                   }}
                 >
-                  <TierBackground
+                  <TierTimelineRail
+                    tier={section.tier}
+                    isActive={section.tierIndex === activeTierIndex}
+                  />
+                  <TierSectionTitle
                     tier={section.tier}
                     isActive={section.tierIndex === activeTierIndex}
                   />
@@ -323,37 +360,6 @@ export default function BotLobby() {
               ))}
             </div>
           )}
-
-          {/* Full-width layer — purely for sticky titles + the
-              IntersectionObserver markers. Spans the exact same scroll
-              range as the node column below via an explicit height, but as
-              a true viewport-width box, so "left-8" lands near the real
-              screen edge instead of the narrow path column's edge. */}
-          <div
-            className="pointer-events-none absolute top-0 left-0 z-20 w-full"
-            style={{ height: fullHeight }}
-          >
-            {tierSections.map((section) => (
-              <div
-                key={`title-${section.tier.id}`}
-                data-tier-index={section.tierIndex}
-                className="absolute inset-x-0"
-                style={{
-                  top: section.firstNode.y,
-                  height: section.sectionHeight,
-                }}
-              >
-                <TierTimelineRail
-                  tier={section.tier}
-                  isActive={section.tierIndex === activeTierIndex}
-                />
-                <TierSectionTitle
-                  tier={section.tier}
-                  isActive={section.tierIndex === activeTierIndex}
-                />
-              </div>
-            ))}
-          </div>
 
           {/* Centered path column — now owned by MapPathLayer. */}
           <MapPathLayer
