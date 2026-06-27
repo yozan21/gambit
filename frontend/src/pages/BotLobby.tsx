@@ -149,6 +149,7 @@ export default function BotLobby() {
     mapScrollRef,
     TIERS.length,
     Math.max(0, tierForLevel(unlockedLevel)),
+    isMobile ? "top" : "center",
   );
 
   useEffect(() => {
@@ -275,14 +276,16 @@ export default function BotLobby() {
   }, [isInitialScrollDone, searchParams, unlockedLevel, navigate]);
 
   return (
-    <div className="relative h-screen overflow-hidden pt-25 sm:pt-15">
+    <div className="relative h-screen overflow-hidden pt-10 sm:pt-15">
       <Navbar />
 
       {isMobile && (
-        <MobileTierBar
-          tier={TIERS[activeTierIndex] ?? null}
-          tierIndex={activeTierIndex}
-        />
+        <>
+          <MobileTierBar
+            tier={TIERS[activeTierIndex] ?? null}
+            tierIndex={activeTierIndex}
+          />
+        </>
       )}
       <div
         className="relative h-full transition-all duration-300"
@@ -327,6 +330,25 @@ export default function BotLobby() {
             ))}
           </div>
 
+          {/* Tier boundary markers — always in DOM so useActiveTier can measure them.
+    Zero size, pointer-events-none, completely invisible. */}
+          <div
+            className="pointer-events-none absolute top-0 left-0 w-full"
+            style={{ height: fullHeight }}
+          >
+            {tierSections.map((section) => (
+              <div
+                key={`marker-${section.tier.id}`}
+                data-tier-index={section.tierIndex}
+                className="absolute inset-x-0"
+                style={{
+                  top: section.minY,
+                  height: section.sectionHeight,
+                }}
+              />
+            ))}
+          </div>
+
           {/* Full-width layer — purely for sticky titles + the
               IntersectionObserver markers. Spans the exact same scroll
               range as the node column below via an explicit height, but as
@@ -341,7 +363,6 @@ export default function BotLobby() {
               {tierSections.map((section) => (
                 <div
                   key={`title-${section.tier.id}`}
-                  data-tier-index={section.tierIndex}
                   className="absolute inset-x-0"
                   style={{
                     top: section.minY, // ← was section.firstNode.y

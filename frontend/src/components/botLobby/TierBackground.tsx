@@ -1,5 +1,5 @@
 // components/botLobby/TierBackground.tsx
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { TIERS } from "@/utils/tiers";
 import type { Tier } from "@/utils/tiers";
@@ -77,7 +77,7 @@ function getDecorations(tierId: string, tierIndex: number): Decoration[] {
   return items;
 }
 
-export function TierBackground({ tier, isActive }: TierBackgroundProps) {
+function TierBackgroundFn({ tier, isActive }: TierBackgroundProps) {
   const { theme } = tier;
   const tierIndex = TIERS.indexOf(tier);
 
@@ -187,3 +187,5 @@ export function TierBackground({ tier, isActive }: TierBackgroundProps) {
     </div>
   );
 }
+
+export const TierBackground = memo(TierBackgroundFn);

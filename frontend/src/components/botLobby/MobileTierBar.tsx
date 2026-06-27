@@ -11,7 +11,7 @@ export function MobileTierBar({ tier, tierIndex }: MobileTierBarProps) {
 
   return (
     <div
-      className="fixed top-10 right-0 left-0 z-30 flex items-center px-4 py-2"
+      className="fixed top-15 right-0 left-0 z-30 flex items-center px-4 py-2"
       style={{
         background: "var(--bg-base)",
         borderBottom: `1px solid ${tier.theme.primary}30`,
@@ -28,31 +28,19 @@ export function MobileTierBar({ tier, tierIndex }: MobileTierBarProps) {
           className="flex items-center gap-2"
         >
           <span className="text-xl leading-none">{tier.icon}</span>
-          <div className="flex flex-col">
+          <div className="flex items-center justify-center gap-2">
             <span
-              className="text-xs leading-none font-bold"
+              className="text-sm leading-none font-bold"
               style={{ color: tier.theme.primary }}
             >
               {tier.name}
             </span>
-            <span className="text-[10px] leading-none text-muted-foreground">
-              Levels {tier.range[0]}-{tier.range[1]}
+            <span className="text-xs leading-none text-muted-foreground">
+              Levels {tier.range[0]} - {tier.range[1]}
             </span>
           </div>
         </motion.div>
       </AnimatePresence>
-
-      <motion.div
-        key={`bar-${tierIndex}`}
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        className="absolute bottom-0 left-0 h-0.5 origin-right"
-        style={{
-          width: "100%",
-          background: `linear-gradient(270deg, ${tier.theme.primary}, transparent)`,
-        }}
-      />
     </div>
   );
 }

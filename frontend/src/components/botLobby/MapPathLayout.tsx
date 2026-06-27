@@ -1,6 +1,6 @@
 import { GATE_LEVELS, getTierForLevel, TIERS, type Tier } from "@/utils/tiers";
 import { PathNodeButton } from "@/components/botLobby/PathNodeButton";
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { PathNode } from "@/utils/pathLayout";
 
 interface TierSection {
@@ -76,7 +76,7 @@ function getProgressSegments(nodes: PathNode[], unlockedLevel: number) {
   return segments;
 }
 
-export function MapPathLayer({
+function MapPathLayerFn({
   nodes,
   tierSections,
   svgPath,
@@ -92,6 +92,10 @@ export function MapPathLayer({
   const progressSegments = useMemo(
     () => getProgressSegments(nodes, unlockedLevel),
     [nodes, unlockedLevel],
+  );
+  const completedSet = useMemo(
+    () => new Set(completedLevels),
+    [completedLevels],
   );
 
   return (
@@ -209,7 +213,7 @@ export function MapPathLayer({
                   isLocked={
                     node.level > unlockedLevel && !GATE_LEVELS.has(node.level)
                   }
-                  isCompleted={completedLevels.includes(node.level)}
+                  isCompleted={completedSet.has(node.level)}
                   isFrontier={node.level === unlockedLevel}
                   isGate={
                     GATE_LEVELS.has(node.level) && node.level > unlockedLevel
@@ -226,3 +230,25 @@ export function MapPathLayer({
     </div>
   );
 }
+
+export const MapPathLayer = memo(MapPathLayerFn, (prev, next) => {
+  // For all other props, reference equality is fine since they're
+  // primitives, stable refs, or memoized values from the parent.
+  // completedLevels is the only prop that gets a new array reference
+  // on every Redux update even when contents haven't changed.
+  if (prev.completedLevels.length !== next.completedLevels.length) return false;
+  if (prev.completedLevels.some((l, i) => next.completedLevels[i] !== l))
+    return false;
+
+  return (
+    prev.nodes === next.nodes &&
+    prev.tierSections === next.tierSections &&
+    prev.svgPath === next.svgPath &&
+    prev.fullHeight === next.fullHeight &&
+    prev.svgWidth === next.svgWidth &&
+    prev.unlockedLevel === next.unlockedLevel &&
+    prev.panelLevel === next.panelLevel &&
+    prev.onNodeClick === next.onNodeClick &&
+    prev.setNodeRef === next.setNodeRef
+  );
+});
