@@ -1,8 +1,7 @@
-// components/botLobby/MapPathLayer.tsx
-import { SVG_WIDTH, type PathNode } from "@/utils/pathLayout";
 import { GATE_LEVELS, getTierForLevel, TIERS, type Tier } from "@/utils/tiers";
 import { PathNodeButton } from "@/components/botLobby/PathNodeButton";
 import { useMemo } from "react";
+import type { PathNode } from "@/utils/pathLayout";
 
 interface TierSection {
   tier: Tier;
@@ -18,6 +17,7 @@ interface MapPathLayerProps {
   tierSections: TierSection[];
   svgPath: string;
   fullHeight: number;
+  svgWidth: number;
   unlockedLevel: number;
   completedLevels: number[];
   panelLevel: number | null;
@@ -25,13 +25,11 @@ interface MapPathLayerProps {
   setNodeRef: (level: number) => (el: HTMLButtonElement | null) => void;
 }
 
-// One cubic bezier segment: M from → C with midY control points → to
 function buildSegmentPath(from: PathNode, to: PathNode): string {
   const midY = (from.y + to.y) / 2;
   return `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
 }
 
-// Pairs of [lastNodeOfTierA, firstNodeOfTierB] for every tier boundary
 function getTierBridges(nodes: PathNode[]) {
   const bridges: Array<{
     from: PathNode;
@@ -82,6 +80,7 @@ export function MapPathLayer({
   tierSections,
   svgPath,
   fullHeight,
+  svgWidth,
   unlockedLevel,
   completedLevels,
   panelLevel,
@@ -97,11 +96,11 @@ export function MapPathLayer({
   return (
     <div
       className="relative mx-auto"
-      style={{ width: SVG_WIDTH, height: fullHeight }}
+      style={{ width: svgWidth, height: fullHeight }}
     >
       <svg
         className="pointer-events-none absolute top-0 left-0"
-        width={SVG_WIDTH}
+        width={svgWidth}
         height={fullHeight}
       >
         <defs>
@@ -121,7 +120,6 @@ export function MapPathLayer({
           ))}
         </defs>
 
-        {/* Base path — full route in neutral color */}
         <path
           d={svgPath}
           fill="none"
@@ -145,7 +143,6 @@ export function MapPathLayer({
           strokeDasharray="4 8"
         />
 
-        {/* Progress path */}
         {progressSegments.map((seg, i) => (
           <path
             key={i}
@@ -158,7 +155,6 @@ export function MapPathLayer({
           />
         ))}
 
-        {/* Bridge segments — overpaint base path with tier-to-tier gradient */}
         {bridges.map(({ id, from, to }) => (
           <path
             key={id}
@@ -170,7 +166,6 @@ export function MapPathLayer({
           />
         ))}
 
-        {/* Milestone dots every 10 levels */}
         {nodes
           .filter((_, i) => i % 10 === 9)
           .map((node) => (
@@ -191,7 +186,7 @@ export function MapPathLayer({
           className="absolute left-0"
           style={{
             top: section.firstNode.y,
-            width: SVG_WIDTH,
+            width: svgWidth,
             height: section.sectionHeight,
           }}
         >

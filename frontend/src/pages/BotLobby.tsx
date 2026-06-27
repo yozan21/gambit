@@ -18,7 +18,9 @@ import { GATE_LEVELS, TIERS, tierForLevel } from "@/utils/tiers";
 import {
   buildSvgPath,
   computePath,
+  MOBILE_SVG_WIDTH,
   NODE_SPACING,
+  SVG_WIDTH,
   type PathNode,
 } from "@/utils/pathLayout";
 import { TierSectionTitle } from "@/components/botLobby/TierSectionTitle";
@@ -29,6 +31,8 @@ import { TierTimelineRail } from "@/components/botLobby/TierTimelineRail";
 import { MapPathLayer } from "@/components/botLobby/MapPathLayout";
 import { useNodeInView } from "@/hooks/useNodeInView";
 import ScrollToCurrentButton from "@/components/botLobby/ScrollToCurrentButton";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { MobileTierBar } from "@/components/botLobby/MobileTierBar";
 
 export default function BotLobby() {
   usePageTitle("Play vs Bot");
@@ -55,6 +59,16 @@ export default function BotLobby() {
   const currentNodeRef = useRef<HTMLButtonElement | null>(null);
   const currentNodeState = useNodeInView(currentNodeRef, mapScrollRef);
 
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const svgWidth = isMobile ? MOBILE_SVG_WIDTH : SVG_WIDTH;
+
+  // Update computePath call:
+
+  // Reset scroll when layout switches:
+  useEffect(() => {
+    setTimeout(() => setIsInitialScrollDone(false), 0);
+  }, [isMobile]);
+
   const setNodeRef = useCallback(
     (level: number) => (el: HTMLButtonElement | null) => {
       if (el) nodeRefs.current.set(level, el);
@@ -65,7 +79,10 @@ export default function BotLobby() {
     [unlockedLevel],
   );
 
-  const { nodes, totalHeight } = useMemo(() => computePath(TIERS), []);
+  const { nodes, totalHeight } = useMemo(
+    () => computePath(TIERS, svgWidth, isMobile),
+    [svgWidth, isMobile],
+  );
   const fullHeight = totalHeight + 100;
 
   const tierSections = useMemo(() => {
@@ -257,18 +274,23 @@ export default function BotLobby() {
     <div className="relative h-screen overflow-hidden pt-10 sm:pt-15">
       <Navbar />
 
+      {isMobile && (
+        <MobileTierBar
+          tier={TIERS[activeTierIndex] ?? null}
+          tierIndex={activeTierIndex}
+        />
+      )}
       <div
         className="relative h-full transition-all duration-300"
-        style={
-          panelLevel !== null
-            ? {
-                transform: "scale(0.99)",
-                filter: "blur(1px)",
-                opacity: 0.55,
-                pointerEvents: "none",
-              }
-            : undefined
-        }
+        style={{
+          ...(isMobile && { paddingTop: "36px" }),
+          ...(panelLevel !== null && {
+            transform: "scale(0.99)",
+            filter: "blur(1px)",
+            opacity: 0.55,
+            pointerEvents: "none",
+          }),
+        }}
       >
         <div
           ref={mapScrollRef}
@@ -279,26 +301,28 @@ export default function BotLobby() {
             msOverflowStyle: "none",
           }}
         >
-          <div
-            className="pointer-events-none absolute top-0 left-0 w-full"
-            style={{ height: fullHeight }}
-          >
-            {tierSections.map((section) => (
-              <div
-                key={`bg-${section.tier.id}`}
-                className="absolute inset-x-0"
-                style={{
-                  top: section.firstNode.y,
-                  height: section.sectionHeight,
-                }}
-              >
-                <TierBackground
-                  tier={section.tier}
-                  isActive={section.tierIndex === activeTierIndex}
-                />
-              </div>
-            ))}
-          </div>
+          {!isMobile && (
+            <div
+              className="pointer-events-none absolute top-0 left-0 w-full"
+              style={{ height: fullHeight }}
+            >
+              {tierSections.map((section) => (
+                <div
+                  key={`bg-${section.tier.id}`}
+                  className="absolute inset-x-0"
+                  style={{
+                    top: section.firstNode.y,
+                    height: section.sectionHeight,
+                  }}
+                >
+                  <TierBackground
+                    tier={section.tier}
+                    isActive={section.tierIndex === activeTierIndex}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Full-width layer — purely for sticky titles + the
               IntersectionObserver markers. Spans the exact same scroll
@@ -334,6 +358,7 @@ export default function BotLobby() {
           {/* Centered path column — now owned by MapPathLayer. */}
           <MapPathLayer
             nodes={nodes}
+            svgWidth={svgWidth}
             tierSections={tierSections}
             svgPath={svgPath}
             fullHeight={fullHeight}

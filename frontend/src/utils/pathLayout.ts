@@ -1,4 +1,3 @@
-// utils/pathLayout.ts
 import type { Tier } from "./tiers";
 
 export interface PathNode {
@@ -8,25 +7,16 @@ export interface PathNode {
   tierIndex: number;
 }
 
-// Widened from 320 — the map now owns the full viewport (no permanent
-// sidebar eating space), so there's real room for the path to breathe.
 export const SVG_WIDTH = 480;
+export const MOBILE_SVG_WIDTH = 320;
 export const NODE_SPACING = 80;
 export const CENTER_X = SVG_WIDTH / 2;
 
 const TOP_PADDING = 100;
-
-// One constant frequency/amplitude for every tier — this IS the "same
-// curvature first to last" behavior. No per-tier scaling, so there's
-// nothing that can grow unbounded and nothing to clamp.
 const WAVE_FREQUENCY = 0.45;
-
 const NODE_RADIUS = 22;
-const EDGE_PADDING = 24; // generous gutter — room for glow/milestone dots too
-const MAX_AMPLITUDE = CENTER_X - NODE_RADIUS - EDGE_PADDING; // = 194
-
-// Comfortable margin below the true max so even the widest swing has
-// visible breathing room from the edges, not just technically-not-clipping.
+const EDGE_PADDING = 24;
+const MAX_AMPLITUDE = CENTER_X - NODE_RADIUS - EDGE_PADDING;
 const AMPLITUDE = Math.min(160, MAX_AMPLITUDE);
 
 if (import.meta.env?.DEV && AMPLITUDE > MAX_AMPLITUDE) {
@@ -35,26 +25,39 @@ if (import.meta.env?.DEV && AMPLITUDE > MAX_AMPLITUDE) {
   );
 }
 
-export function computePath(tiers: Tier[]): {
+export function computePath(
+  tiers: Tier[],
+  svgWidth = SVG_WIDTH,
+  invert = false,
+): {
   nodes: PathNode[];
   totalHeight: number;
 } {
+  const centerX = svgWidth / 2;
+  const maxAmplitude = centerX - NODE_RADIUS - EDGE_PADDING;
+  const amplitude = Math.min(160, maxAmplitude);
+
   const nodes: PathNode[] = [];
 
   tiers.forEach((tier, tierIndex) => {
     const [start, end] = tier.range;
-
     for (let lv = start; lv <= end; lv++) {
       const levelIndex = nodes.length;
       const y = TOP_PADDING + levelIndex * NODE_SPACING;
-      const x = CENTER_X + Math.sin(lv * WAVE_FREQUENCY) * AMPLITUDE;
-
+      const x = centerX + Math.sin(lv * WAVE_FREQUENCY) * amplitude;
       nodes.push({ level: lv, x, y, tierIndex });
     }
   });
 
   const totalHeight =
     TOP_PADDING + (nodes.length - 1) * NODE_SPACING + TOP_PADDING;
+
+  if (invert) {
+    for (const node of nodes) {
+      node.y = totalHeight - node.y;
+    }
+    nodes.reverse();
+  }
 
   return { nodes, totalHeight };
 }

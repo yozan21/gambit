@@ -32,7 +32,12 @@ class StockfishService {
     const engine = await pool.acquire();
     try {
       await engine.setOptions({ "Skill Level": this.levelToSkill(level) }); // only skill level per move
-      const result = await engine.analyze(fen, this.levelToDepth(level));
+      const result = await Promise.race([
+        engine.analyze(fen, this.levelToDepth(level)),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Stockfish timeout")), 10_000),
+        ),
+      ]);
       if (!result.bestmove || result.bestmove === "(none)")
         throw new Error("No move available");
       return result.bestmove;
@@ -46,7 +51,12 @@ class StockfishService {
     const engine = await pool.acquire();
     try {
       await engine.setOptions({ "Skill Level": 20 }); // only skill level per move
-      const result = await engine.analyze(fen, 12);
+      const result = await Promise.race([
+        engine.analyze(fen, 12),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Stockfish timeout")), 10_000),
+        ),
+      ]);
       if (!result.bestmove || result.bestmove === "(none)")
         throw new Error("No move available");
       return result.bestmove;
