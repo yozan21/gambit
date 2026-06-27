@@ -9,6 +9,11 @@ class StockfishService {
     if (!this.pool) {
       this.pool = new StockfishPool(1);
       await this.pool.initialize();
+
+      // Set options once after init
+      const engine = await this.pool.acquire();
+      await engine.setOptions({ Hash: 16, Threads: 1 });
+      this.pool.release(engine);
     }
     this.resetIdleTimer();
     return this.pool;
@@ -26,10 +31,7 @@ class StockfishService {
     const pool = await this.getPool();
     const engine = await pool.acquire();
     try {
-      await engine.setOptions({
-        "Skill Level": this.levelToSkill(level),
-        hash: 32,
-      });
+      await engine.setOptions({ "Skill Level": this.levelToSkill(level) }); // only skill level per move
       const result = await engine.analyze(fen, this.levelToDepth(level));
       if (!result.bestmove || result.bestmove === "(none)")
         throw new Error("No move available");
@@ -43,7 +45,7 @@ class StockfishService {
     const pool = await this.getPool();
     const engine = await pool.acquire();
     try {
-      await engine.setOptions({ "Skill Level": 20 });
+      await engine.setOptions({ "Skill Level": 20 }); // only skill level per move
       const result = await engine.analyze(fen, 12);
       if (!result.bestmove || result.bestmove === "(none)")
         throw new Error("No move available");
