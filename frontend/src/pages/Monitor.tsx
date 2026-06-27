@@ -102,8 +102,8 @@ export default function MemoryMonitor() {
     }
   };
 
-  const rss = data ? parseMB(data.nodeRss) : 0;
-  const rssPct = Math.round((rss / MAX_MB) * 100);
+  const totalMem = data ? parseMB(data.containerTotal) : 0;
+  const rssPct = Math.round((totalMem / MAX_MB) * 100);
 
   return (
     <div className="min-h-screen bg-gray-950 p-6 text-white">
@@ -202,7 +202,7 @@ export default function MemoryMonitor() {
         {/* RSS bar */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-gray-400">
-            <span>RSS vs 512 MB limit</span>
+            <span>Total Memory vs 512 MB limit</span>
             <span className={data ? statusColor(rssPct) : "text-gray-600"}>
               {data ? `${rssPct}%` : "—"}
             </span>
