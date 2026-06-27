@@ -10,20 +10,22 @@ import {
 } from "recharts";
 
 interface HealthData {
-  rss: string;
-  heap: string;
-  external: string;
-  totalHeapSize: string;
-  arrayBuffers: string;
+  nodeRss: string;
+  nodeHeap: string;
+  nodeArrayBuffers: string;
+  containerTotal: string;
+  stockfishProcesses: string;
+  stockfishRssMB: string;
 }
 
 interface DataPoint {
   time: string;
-  rss: number;
-  heap: number;
-  external: number;
-  totalHeapSize: number;
-  arrayBuffers: number;
+  nodeRss: number;
+  nodeHeap: number;
+  nodeArrayBuffers: number;
+  containerTotal: number;
+  stockfishProcesses: number;
+  stockfishRssMB: number;
 }
 
 const MAX_MB = 512;
@@ -72,11 +74,12 @@ export default function MemoryMonitor() {
           ...prev,
           {
             time: now,
-            rss: parseMB(json.rss),
-            heap: parseMB(json.heap),
-            external: parseMB(json.external),
-            totalHeapSize: parseMB(json.totalHeapSize),
-            arrayBuffers: parseMB(json.arrayBuffers),
+            nodeRss: parseMB(json.nodeRss),
+            nodeHeap: parseMB(json.nodeHeap),
+            nodeArrayBuffers: parseMB(json.nodeArrayBuffers),
+            containerTotal: parseMB(json.containerTotal),
+            stockfishProcesses: parseMB(json.stockfishProcesses),
+            stockfishRssMB: parseMB(json.stockfishRssMB),
           },
         ];
         return next.slice(-30);
@@ -161,22 +164,31 @@ export default function MemoryMonitor() {
         {/* Metric cards */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "RSS (total)", value: data?.rss, sub: "Render's limit" },
-            { label: "Heap used", value: data?.heap, sub: "V8 engine" },
             {
-              label: "External",
-              value: data?.external,
+              label: "RSS (total)",
+              value: data?.nodeRss,
+              sub: "Render's limit",
+            },
+            { label: "Heap used", value: data?.nodeHeap, sub: "V8 engine" },
+            {
+              label: "Stockfish Active Processes",
+              value: data?.stockfishProcesses,
               sub: "WASM / Stockfish",
             },
             {
               label: "Total heap",
-              value: data?.totalHeapSize,
+              value: data?.containerTotal,
               sub: "Total heap allocated",
             },
             {
               label: "Array buffers",
-              value: data?.arrayBuffers,
+              value: data?.nodeArrayBuffers,
               sub: "Array buffers size",
+            },
+            {
+              label: "Stockfish Size",
+              value: data?.stockfishRssMB,
+              sub: "Stockfish size",
             },
           ].map(({ label, value, sub }) => (
             <div key={label} className="rounded-xl bg-gray-900 p-4">
@@ -237,7 +249,7 @@ export default function MemoryMonitor() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="rss"
+                  dataKey="nodeRss"
                   stroke="#2a78d6"
                   strokeWidth={2}
                   dot={false}
@@ -245,7 +257,7 @@ export default function MemoryMonitor() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="heap"
+                  dataKey="nodeHeap"
                   stroke="#1baf7a"
                   strokeWidth={2}
                   dot={false}
@@ -253,27 +265,35 @@ export default function MemoryMonitor() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="external"
+                  dataKey="containerTotal"
                   stroke="#eda100"
                   strokeWidth={2}
                   dot={false}
-                  name="External"
+                  name="Total Heap"
                 />
                 <Line
                   type="monotone"
-                  dataKey="totalHeapSize"
+                  dataKey="stockfishProcesses"
                   stroke="#ed003b"
                   strokeWidth={2}
                   dot={false}
-                  name="Total Heap Size"
+                  name="Stockfish"
                 />
                 <Line
                   type="monotone"
-                  dataKey="arrayBuffers"
+                  dataKey="nodeArrayBuffers"
                   stroke="#b600ed"
                   strokeWidth={2}
                   dot={false}
                   name="Array Buffers"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="stockfishRssMB"
+                  stroke="#d4db71"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Stockfish Size"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -282,7 +302,7 @@ export default function MemoryMonitor() {
             <div className="mt-3 flex gap-4 text-xs text-gray-500">
               <span className="flex items-center gap-1">
                 <span className="inline-block h-0.5 w-3 bg-blue-500" />
-                RSS
+                Node RSS
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-0.5 w-3 bg-green-500" />
@@ -290,15 +310,19 @@ export default function MemoryMonitor() {
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-0.5 w-3 bg-yellow-500" />
-                External (Stockfish)
+                Total Heap
               </span>{" "}
               <span className="flex items-center gap-1">
                 <span className="inline-block h-0.5 w-3 bg-[#ed003b]" />
-                Total Heap Size
+                Stockfish
               </span>{" "}
               <span className="flex items-center gap-1">
                 <span className="inline-block h-0.5 w-3 bg-[#b600ed]" />
                 Array Buffers
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-0.5 w-3 bg-[#d4db71]" />
+                Stockfish Size
               </span>
             </div>
           )}
