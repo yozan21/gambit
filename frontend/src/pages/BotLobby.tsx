@@ -275,7 +275,7 @@ export default function BotLobby() {
   }, [isInitialScrollDone, searchParams, unlockedLevel, navigate]);
 
   return (
-    <div className="relative h-screen overflow-hidden pt-15 sm:pt-15">
+    <div className="relative h-screen overflow-hidden pt-25 sm:pt-15">
       <Navbar />
 
       {isMobile && (
